@@ -4,9 +4,10 @@ A compatibility repair of the community mod **Unkillables Rebalance** for
 *The Forever Winter* (Nexus mod [#68](https://www.nexusmods.com/theforeverwinter/mods/68)),
 so it works again on the current game build.
 
-> **Status:** WIP — **diagnosed**, fix not yet built. The mod ships for game **0.9.2.2**; the current build is
-> **0.9.3.9.2** (24097213). Root cause is cooked-asset version drift (same failure class as `HeavyRifleRebalanceFix`).
-> See [`docs/diagnosis.md`](docs/diagnosis.md) and [`WORKLOG.md`](WORKLOG.md).
+> **Status:** **fix built & statically verified** — awaiting the in-game test on build **0.9.3.9.2** (24097213).
+> The mod ships for game **0.9.2.2**; root cause is cooked-asset version drift (same failure class as
+> `HeavyRifleRebalanceFix`). The rebuilt pak is in [`dist/UnkillablesRebalanceFix/`](dist/UnkillablesRebalanceFix).
+> See [`docs/fix-notes.md`](docs/fix-notes.md), [`docs/diagnosis.md`](docs/diagnosis.md) and [`WORKLOG.md`](WORKLOG.md).
 
 ## What the mod does
 
@@ -37,8 +38,8 @@ differs) and are low-risk. See [`docs/diagnosis.md`](docs/diagnosis.md).
 |------|----------|
 | `upstream/` | Pristine extracted original (`153_` pak). Reference only; cooked binaries are gitignored. |
 | `docs/` | Diagnosis, the datamined rebalance value map, fix notes. |
-| `tools/` | Repair/build script (added when the fix is built). |
-| `dist/` | **Built fixed mod** — tracked (ships the repaired `153` pak). Added when the fix is built. |
+| `tools/` | `build_fix.sh` (reproducible rebuild) + `patch_drifted.py` (self-verifying scalar patcher). retoc is gitignored. |
+| `dist/` | **Built fixed mod** — tracked; ships the repaired `153` pak + player `readme.txt`. |
 | `WORKLOG.md` | Running log. |
 
 ## Dependencies (unchanged from upstream)

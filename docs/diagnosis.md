@@ -88,7 +88,11 @@ retoc (not yet on this machine) and an in-game test on 24097213.
 
 ## Honest caveats
 
-- **Not yet built or tested.** This document is static analysis + author-description corroboration only.
+- **Fix built & statically verified; in-game test still pending.** The hybrid rebuild (Option A for the 8 low-risk,
+  Option B for the drifted 3) is done and decode-verifies (`docs/fix-notes.md`): `retoc verify` passes, FPackageIds are
+  11/11 identical to the original, all values read back correctly, and the drifted 3 now report current base structure
+  (182/417/497 exports). The one remaining unknown — whether the game's runtime linker agrees with the static parse — is
+  resolved only by a launch on 24097213, the same arbiter as HeavyRifle.
 - The `191`-style mesh/texture side that HeavyRifle had does **not** exist here — this mod touches no meshes, so there's
   no cosmetic-regression surface.
 - Any future hotfix touching these boss classes will re-break the pak — inherent to cooked-override mods.

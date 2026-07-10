@@ -70,9 +70,34 @@ Rebalance is pure scalars → a pak is unavoidable (JSON can't express BP CDO he
 hybrid: A for the 8, B for the drifted 3. **retoc is not on this machine** (was gitignored on the D: machine that built
 HeavyRifle) — a build needs it fetched (trumank/retoc v0.1.5) + a launch on 24097213 to verify.
 
-### Next (decision pending with user)
-- [ ] Choose build approach (A / B / hybrid) for the drifted 3.
-- [ ] Fetch retoc, build the fixed `153` pak, `retoc verify` + decode-verify the values.
-- [ ] In-game test on build 24097213 (kill each boss; confirm Grabber swipe-not-grab; check MotherCourage/OrgaMech
-      death anim).
+### BUILD — fixed pak built (user chose **Hybrid**; game not launched)
+Tooling: **retoc v0.1.5** (trumank/retoc, sha256 `cc036b06…d263aa` verified) in `tools/retoc/` (gitignored).
+
+**Strategy = hybrid** (see `docs/fix-notes.md`, reproducible via `tools/build_fix.sh`):
+- **8 low-risk assets** (MeatMan, OrgaMech, ShieldOfficer, Toothy + 4 Stalker AIDEFs): rebase the MOD's version —
+  `to-legacy` from the base+`zzz_`mod mount (mod wins) → the extracts land at BARE paths (mod stores bare, like
+  HeavyRifle's 152) → **repath to real `/Game` paths** (retoc derives FPackageId from path) → `to-zen`. Verified the
+  extracts already carry the mod HP (MeatMan 330000 ×2, etc.) and Stalker 1000s.
+- **3 drifted assets** (MotherCourage, Opal, BPC): `to-legacy` the **current base** → `tools/patch_drifted.py` (health:
+  1e9 float32 ×2 → 372000 / 213000; BPC: 19 ordered **doubles**) → repack. The constants are UE5 doubles, not float32
+  (0 float32 hits, exact double counts 168700×11/210000×3/126000×2/283500×2/330000×1 = 19). Patcher is self-verifying:
+  asserts the base double sequence == the datamined index order (20–38) before writing, so a wrong 168700→61870/108700
+  or 210000→72000/43000 split can't ship.
+
+**Verified without launching:**
+- `retoc verify` → verified. `to-zen` → `153` (.pak 347 B / .ucas 526 KB / .utoc 2 KB).
+- **FPackageIds 11/11 byte-identical to the original working mod** (`retoc manifest` diff) → binds to the same base
+  packages the 0.9.2.2 mod did.
+- Isolated (global + rebuilt) decode: **ok=11 fail=0**; HP 330000/286870/328000/308700/372000/213000; all 4 Stalkers
+  1000/1000; BPC 19 constants in exact order (61870×4 … 43000). **Drifted 3 now report CURRENT base export counts
+  (182 / 417 / 497)** — current structure, stale-subset eliminated.
+- Full game+rebuilt mount decode: **ok=27 fail=0** (imports resolve, no data loss — clears the to-zen isolated-null caveat).
+
+**Delivered:** `dist/UnkillablesRebalanceFix/` (rebuilt `153` + `readme.txt`). `docs/fix-notes.md` = what changed +
+install + test checklist. Repo `dist/` tracked (ships the repaired pak), scratch (`work/`, `tools/retoc/`) gitignored.
+
+### Next (user)
+- [ ] Install `dist/` pak + current loader (Signature Bypass + UE4SS); launch build 24097213; run the
+      `docs/fix-notes.md` checklist (kill each boss; Grabber swipe-not-grab; no `ObjectSerializationError`).
+- [ ] Report any residual crash (would mean another asset needs the same treatment).
 - [ ] (optional) confirm original-author permission before any public redistribution.
