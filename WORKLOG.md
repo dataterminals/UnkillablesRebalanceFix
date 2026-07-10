@@ -101,3 +101,61 @@ install + test checklist. Repo `dist/` tracked (ships the repaired pak), scratch
       `docs/fix-notes.md` checklist (kill each boss; Grabber swipe-not-grab; no `ObjectSerializationError`).
 - [ ] Report any residual crash (would mean another asset needs the same treatment).
 - [ ] (optional) confirm original-author permission before any public redistribution.
+
+---
+
+## 2026-07-10 — In-game arbiter fired: MeatMan crash → 4 boss BPs moved Option A→B, rebuilt
+
+**The pending in-game test happened (via a community member) and it CRASHED** — exactly the risk
+Session 1 flagged for the "low-risk 8." A player running this fix (#124) + HeavyRifleRebalanceFix
+(#123) + a hub-upgrade mod hit, on the current build:
+
+```
+ObjectSerializationError: /Game/FW/AI/Characters/Euruska/MeatMan/BP_AI_Euruska_MeatMan
+  (0x7551B1DC4D4EECD5) ... Default__BP_AI_Euruska_MeatMan_C: Bad export index 1066192076/32.
+```
+
+Triage: removing the #124 pak **boots clean** (community-confirmed). HeavyRifleRebalanceFix is
+cleared (ships zero AI assets; the MeatMan FPackageId is absent from its 30 packages). The hub mod is
+UE4SS data (no pak). So #124 is the culprit — its `BP_AI_Euruska_MeatMan` override.
+
+**Why the Session-1 "low-risk" call was wrong for the boss BPs.** MeatMan was rebased via Option A on
+"71=71, structurally identical" reasoning. But the deserialization-relevant export count is **32**
+(CUE4Parse GetExports == the runtime's `/32`); the "71" in the drift table was a different IoStore
+metric. Decode-diff of the shipped (Option-A) MeatMan vs current base: base uexp **5931 B**, shipped
+**5904 B** — current base is a small **superset** (gained a `"Sync Kill in Log"` element post-0.9.2.2).
+So the mod's 0.9.2.2 cook is a stale subset whose cooked references desync at runtime → bad export
+index → crash. **Export-count parity ≠ a safe cook** — the HRF05 lesson, now proven on an asset we'd
+filed as low-risk.
+
+**Fix = move all 4 Option-A boss BPs to Option B.** `tools/build_fix.sh` + `tools/patch_drifted.py`
+updated: only the 4 Stalker AIDEF **DataAssets** stay Option-A rebased (no Kismet bytecode → no
+serialization-crash surface); **all 6 boss BPs + BPC now patch the CURRENT base** (extract current
+base → byte-patch only the scalars → to-zen). Health unchanged from the intended rebalance: MeatMan
+330k, OrgaMech 286,870, ShieldOfficer 328k, Toothy 9e8→308,700 (+ MotherCourage 372k, Opal 213k as
+before).
+
+**Rebuilt & verified (static):**
+- `retoc verify` → verified. 11 packages, MeatMan (`d5ec4e4ddcb15175`) present, FPackageIds preserved.
+- Each of the 6 boss BPs is now **byte-identical to current base except exactly its 2 health floats**
+  (8-byte diff) — the same cook the game loads in vanilla, so it cannot fail deserialization. MeatMan
+  is back to 5931 B with `"Sync Kill in Log"`.
+- Isolated global+mod decode: **ok=11 fail=0**; HP 330000/286870/328000/308700/372000/213000; all 4
+  Stalkers 1000/1000; BPC 19 ordered doubles verified.
+- Full game+mod mount decode: imports resolve, **fail=0**.
+
+**Still pending:** the actual in-game re-test (spawn each boss → killable, Grabber swipe-not-grab, no
+`ObjectSerializationError`). Structurally the crash is eliminated; a launch is the final arbiter.
+
+> **In plain terms:** A player's game crashed because of this mod, on a boss called the "Meatman."
+> The mod was shipping an out-of-date copy of that boss (and the other bosses), built for an older
+> game version, so the current game choked trying to load it. We rebuilt those bosses from the
+> *current* game files and changed only their health numbers — so they're guaranteed to load now,
+> just with the killable HP the mod intends. It still needs one real in-game test to tick the last
+> box, but the crash cause is gone.
+
+### Next (user)
+- [ ] Swap the rebuilt `dist/` pak in; launch the current build; spawn MeatMan / OrgaMech /
+      ShieldOfficer / Toothy / MotherCourage / Opal → each killable, Grabber swipes (no insta-grab),
+      **no `ObjectSerializationError`**.
+- [ ] Regenerate the dist zip + re-publish #124 once the launch is green.

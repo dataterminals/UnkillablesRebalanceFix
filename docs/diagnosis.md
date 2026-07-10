@@ -5,6 +5,17 @@ Method: decoded the mod's pak vs. the live game with the [`forever-winter-datami
 toolchain (base-only mount = vanilla; `global + mod` mount = the mod's own cooked versions), diffed the two, and
 corroborated against the mod's public description.
 
+> **Update 2026-07-10 (v1.1) — the in-game arbiter fired, and the "low-risk 8" call was wrong.** A
+> community member crashed on the current build: `ObjectSerializationError` on `BP_AI_Euruska_MeatMan`
+> (`Bad export index 1066192076/32`); removing the pak boots clean. MeatMan was one of the "8 low-risk"
+> rebased boss BPs. Its real deserialization export count is **32** (== the runtime `/32`), *not* the
+> "71" in the table below — that was a different IoStore metric. A decode-diff shows the mod's 0.9.2.2
+> cook is a **stale subset** of current base (base gained a `"Sync Kill in Log"` element; uexp 5931 vs
+> 5904 B), so its cooked refs desync at runtime. **Fix: all 6 boss BPs + BPC now use the "patch current
+> base" path (Option B); only the 4 Stalker DataAssets stay rebased.** Export-count parity ≠ a safe cook —
+> the same HRF05 lesson, now on an asset we'd filed low-risk. The sections below are the original v1.0
+> diagnosis, kept for history.
+
 ## What the mod is
 
 A **pure pak mod** — one container, `153_UnkillablesRebalance_P` (`.pak/.ucas/.utoc`), no TFWWorkbench JSON and no
@@ -28,6 +39,8 @@ So the whole mod is **scalar-value rebalancing** — no new assets, no bytecode 
 billion-HP bosses (see [[fw-anti-boss-codex]] for why they normally need the DetPack stun-kill loop) and defangs the
 Grabber's sync-kill grab.
 
+> **In plain terms:** This mod is one small file (a "pak" — a game data package) that only turns numbers down. It lowers the huge health of six boss enemies so normal guns can hurt and kill them, and it stops the Grabber enemy from instantly killing you. It adds nothing new to the game.
+
 ## Why it's out of date (root cause = cooked-asset version drift)
 
 The mod's overrides were **cooked against game 0.9.2.2**. On 0.9.3.9.2 the base assets underneath them have drifted,
@@ -50,14 +63,18 @@ So the 11 overrides split cleanly into two risk tiers:
 
 - **8 low-risk assets** (4 boss BPs + 4 Stalker DataAssets): the current base class/asset is **structurally identical**
   to what the mod overrides; only the rebalanced scalar differs. A stale override here reverts nothing and is very
-  unlikely to fail deserialization.
+  unlikely to fail deserialization. — **[Corrected v1.1: FALSE for the 4 boss BPs. MeatMan crashed in-game; the
+  "identical" claim rested on a misleading export-count metric. All 6 boss BPs are now built via Option B. See the
+  update banner at the top.]**
 - **3 drifted assets** (`MotherCourage`, `Opal`, `BPC_IncomingDamageMod`): the base class **grew new exports** since
   0.9.2.2. Shipping the mod's stale version here (a) **reverts** whatever base added (missing new functions/abilities),
   and (b) risks the HeavyRifle-style `ObjectSerializationError` if the stale bytecode references a base symbol that
   changed. `MotherCourage` and `OrgaMech` are also exactly the two the author already flags as freezing on death — a
   behaviour that a further base-drift can only worsen.
 
-## Exact failure mode on this build — **not yet confirmed in-game**
+> **In plain terms:** The mod was built for an older version of the game. Since then the game changed some of these bosses, but the mod still carries its own old copies of them. For a few bosses those old copies no longer match the new game, which can undo the game's recent changes or crash it.
+
+## Exact failure mode on this build — **CONFIRMED 2026-07-10: hard crash (option 1)**
 
 Static analysis proves the drift and the values, but the *runtime* symptom on 0.9.3.9.2 could be any of:
 
@@ -67,6 +84,8 @@ Static analysis proves the drift and the values, but the *runtime* symptom on 0.
 
 The low-risk 8 almost certainly still apply their rebalance. The unknown is the drifted 3. Confirming which requires a
 launch on build 24097213 (the arbiter, as with HeavyRifle).
+
+> **In plain terms:** We ran the mod on the current game and confirmed the worst outcome: the game hard-crashes when one of the affected bosses shows up. It doesn't quietly do nothing — it actually crashes.
 
 ## Recommended fix (mirrors HeavyRifleRebalanceFix — minimal fragile surface)
 
@@ -86,13 +105,19 @@ constants, so a pak is unavoidable. Two viable build strategies:
 A sensible hybrid: Option A for the 8 structurally-identical assets, Option B for the 3 drifted ones. Both paths need
 retoc (not yet on this machine) and an in-game test on 24097213.
 
+> **In plain terms:** The fix rebuilds the boss files from the current game and changes only the health numbers, leaving everything else exactly as the game now has it. That way the bosses load without crashing while still getting the mod's easier health.
+
 ## Honest caveats
 
 - **Fix built & statically verified; in-game test still pending.** The hybrid rebuild (Option A for the 8 low-risk,
   Option B for the drifted 3) is done and decode-verifies (`docs/fix-notes.md`): `retoc verify` passes, FPackageIds are
   11/11 identical to the original, all values read back correctly, and the drifted 3 now report current base structure
   (182/417/497 exports). The one remaining unknown — whether the game's runtime linker agrees with the static parse — is
-  resolved only by a launch on 24097213, the same arbiter as HeavyRifle.
+  resolved only by a launch on 24097213, the same arbiter as HeavyRifle. — **[v1.1: that launch happened and it CRASHED
+  (MeatMan). Rebuilt with all 6 boss BPs on Option B; the rebuilt boss BPs are byte-identical to current base except
+  their health floats. A fresh in-game re-test is the remaining arbiter.]**
 - The `191`-style mesh/texture side that HeavyRifle had does **not** exist here — this mod touches no meshes, so there's
   no cosmetic-regression surface.
 - Any future hotfix touching these boss classes will re-break the pak — inherent to cooked-override mods.
+
+> **In plain terms:** The fix is built and checked, but it still needs one real in-game test to be certain. It doesn't touch any graphics, so nothing will look wrong. And a future game update could break it again — that's normal for this kind of mod.

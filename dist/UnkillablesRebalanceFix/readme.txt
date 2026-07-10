@@ -14,10 +14,11 @@ WHAT IT DOES (unchanged from the original mod)
   - Armour/body-zone HP thresholds on the armoured bosses scaled down so zones are destroyable.
 
 WHY A REBUILD
-  The original was cooked for game 0.9.2.2. On 0.9.3.9.2 three of its boss classes had drifted
-  (the game re-cooked them), so the stale overrides risked a crash / reverting base changes.
-  This build ships the 8 unchanged overrides rebased onto the current build, and the 3 drifted
-  ones as the CURRENT game classes with only the rebalanced numbers patched in.
+  The original was cooked for game 0.9.2.2. On the current build its boss blueprints no longer
+  load: an out-of-date copy of the Meatman crashed the game on startup (ObjectSerializationError).
+  This build rebuilds all six bosses from the CURRENT game files with only their health numbers
+  changed, so they load cleanly while keeping the exact same rebalance. (The 4 Grabber/Stalker
+  data files are simple value tables with no crash risk, so they carry over unchanged.)
 
 INSTALL
   Copy the three files

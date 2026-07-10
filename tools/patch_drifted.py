@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Patch the 3 structurally-drifted assets = CURRENT base cooked BPs with ONLY the
-mod's rebalanced scalars changed (Option B). Keeps current 0.9.3.9.2 structure so we
-don't ship stale 0.9.2.2 bytecode / revert base content.
+"""Patch the CURRENT base cooked assets with ONLY the mod's rebalanced scalars changed
+(Option B). Keeps the current 0.9.3.9.2 structure so we don't ship stale 0.9.2.2 bytecode /
+revert base content / crash with ObjectSerializationError.
 
-- MotherCourage / Opal: FWHealthComponent DefaultHealth+DefaultMaxHealth (float32, 2 each)
-  1e9 -> mod value.
+Covers all 6 boss BPs + BPC. (The 4 Stalker AIDEF DataAssets stay Option-A rebased in
+build_fix.sh — DataAssets carry no bytecode, so no serialization-crash surface.)
+
+The 4 "low-risk" boss BPs (MeatMan/OrgaMech/ShieldOfficer/Toothy) were MOVED here from
+Option A after the mod's stale 0.9.2.2 MeatMan cook crashed on 0.9.3.9.2 (community-confirmed
+`ObjectSerializationError: .../BP_AI_Euruska_MeatMan ... Bad export index`, 2026-07-10).
+Export-count parity did NOT guarantee the stale cook loads: current base MeatMan is a small
+superset (gained a "Sync Kill in Log" element post-0.9.2.2), so the mod's cooked references
+desync at runtime. Shipping the current base + patched scalar avoids it entirely.
+
+- Boss BPs: FWHealthComponent DefaultHealth+DefaultMaxHealth (float32, 2 sites each) -> mod
+  value (MeatMan 330k, OrgaMech 286870, ShieldOfficer 328k, Toothy 9e8->308700,
+  MotherCourage 372k, Opal 213k).
 - BPC_IncomingDamageMod: 19 ordered Kismet double constants (armour/body-zone HP).
   Self-verifying: the base double sequence (in file/offset order) MUST equal the order
   datamined from the mod (docs/rebalance-values.json indices 20-38) before any write.
@@ -54,6 +65,12 @@ def patch_bpc(path):
 
 def main():
     root = sys.argv[1]  # build-legacy/ForeverWinter/Content/FW/AI/Characters
+    # 4 boss BPs moved from Option A -> B (mod's stale cooks crash on 0.9.3.9.2; MeatMan confirmed)
+    patch_health(os.path.join(root, "Euruska/MeatMan/BP_AI_Euruska_MeatMan.uexp"), 1e9, 330000.0)
+    patch_health(os.path.join(root, "Euruska/OrgaMech/BP_AI_Euruska_OrgaMech.uexp"), 1e9, 286870.0)
+    patch_health(os.path.join(root, "Euruska/ShieldOfficer/BP_AI_Euruska_ShieldOfficer.uexp"), 1e9, 328000.0)
+    patch_health(os.path.join(root, "Euruska/Toothy/BP_Mech_Toothy.uexp"), 9e8, 308700.0)
+    # originally-drifted 3 (base grew exports since 0.9.2.2)
     patch_health(os.path.join(root, "Eurasia/MotherCourage/BP_AI_Eurasia_MotherCourage.uexp"), 1e9, 372000.0)
     patch_health(os.path.join(root, "Eurasia/Opal/BP_AI_Eurasia_Opal.uexp"), 1e9, 213000.0)
     patch_bpc(os.path.join(root, "Shared/BPC_IncomingDamageMod.uexp"))
