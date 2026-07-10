@@ -1,0 +1,37 @@
+# Build artifacts
+**/bin/
+**/obj/
+tools/**/bin/
+tools/**/obj/
+
+# Decode / staging scratch (never committed)
+decode-out/
+decode-out-*/
+staging/
+staging-*/
+work/
+
+# Cooked game/mod binary assets — third-party + game-derived IP; NOT redistributed here.
+# We track the human-readable analysis (JSON value maps / docs); not the cooked packs.
+*.pak
+*.ucas
+*.utoc
+*.sig
+*.uasset
+*.uexp
+*.ubulk
+*.usmap
+scriptobjects.bin
+oodle-data-shared.dll
+
+# Third-party binaries (UE4SS, signature-bypass dll, etc.)
+*.dll
+
+# Source archives & third-party tool (not tracked)
+*.7z
+*.zip
+tools/retoc/
+
+# EXCEPTION: the built fix package under dist/ IS tracked for this repo — it ships the
+# repaired mod (rebased 153 pak). This deliberately overrides the cooked-asset globs above.
+!dist/**

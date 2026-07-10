@@ -1,0 +1,78 @@
+# Unkillables Rebalance — Fix Worklog
+
+Running tally of what we find and do. Newest entries at the bottom.
+
+---
+
+## 2026-07-09 — Session 1: recon, repo setup & diagnosis
+
+**Goal:** repair the "Unkillables Rebalance" mod (Nexus #68, The Forever Winter) so it works on the current game build,
+mirroring the `HeavyRifleRebalanceFix` workflow.
+
+### Environment
+- Game build (live, this machine): **24097213 = Hot-Fix 0.9.3.9.2**.
+- Mod ships for game **0.9.2.2** (Nexus filename `UnkillablesRebalance-68-0-9-2-2-...`; files dated Feb 2026).
+- Datamine toolchain: `H:\Github Repositories\forever-winter-datamine` (CUE4Parse decoder + `ForeverWinter-5.4.2.usmap`).
+- Extractor: `7z.exe` (`C:\Program Files\7-Zip`).
+
+### What the mod is (pure pak mod)
+Single container `153_UnkillablesRebalance_P` (`.pak` 347 B / `.ucas` ~495 KB / `.utoc` 1.6 KB) — **no** TFWWorkbench
+JSON, **no** loose files, **no** meshes. Standalone mount = **11 overrides**:
+- 6 boss BPs: `BP_AI_Euruska_MeatMan`, `_OrgaMech`, `_ShieldOfficer`, `BP_Mech_Toothy`, `BP_AI_Eurasia_MotherCourage`,
+  `_Opal`.
+- 4 Stalker AI DataAssets: `AIDEF_Euruska_Stalker` + `_HK` / `_Pregnant_Quest` / `_Underground`.
+- 1 shared component BP: `BPC_IncomingDamageMod`.
+
+### Decode method
+CUE4Parse dumps of GetExports (usmap 5.4.2). Three mounts:
+1. **base-only** (game Paks) → vanilla values.
+2. **staging-full** (base hardlinks + mod renamed `zzz_`) → confirmed the mod adds +11 vfs entries (mounts at bare
+   paths, like HeavyRifle's 152). Basename collisions in the output made this mount unreliable for value diffing — all
+   16 came out "SAME" because the `/Game` base entries won the output-file collision, not the mod.
+3. **global + mod** (only `global.*` + the mod pak) → the mod's **true** 11 versions, collision-free. `ok=11 fail=0`.
+   Diffed vs base-only. (Isolated-mount `null`/`-index` imports are artifacts, filtered out.)
+
+### What the mod actually changes (the rebalance — ground truth)
+De-invincibles the billion-HP bosses + defangs the Grabber. Full map in `docs/rebalance-values.json`:
+- **Boss HP** (`FWHealthComponent.DefaultHealth`/`DefaultMaxHealth` in each BP CDO): MeatMan 1e9→**330k**,
+  OrgaMech 1e9→**286,870**, ShieldOfficer 1e9→**328k**, Toothy 9e8→**308,700**, MotherCourage 1e9→**372k**,
+  Opal 1e9→**213k**.
+- **Stalkers** (all 4 AIDEF): `DamageToStagger` 20000→**1000** (20× easier to stun), `SyncKillMaxPlayerHealth`
+  2000→**1000** (no insta-kill grab above 1000 hp).
+- **`BPC_IncomingDamageMod`**: 19 ordered Kismet `EX_FloatConst`s (armour/body-zone HP) scaled down
+  (168700→61870/108700, 210000→72000/43000, 283500→128000, 330000→128000, 126000→86870). The 19 small ints (1–9) are
+  unchanged segment counts.
+- Corroborated verbatim by the mod's public Nexus description (stunnable+killable bosses; 600-dmg Grabber swipe).
+
+### Root cause (static): cooked-asset version drift
+Pak overrides bind to base by FPackageId, so the game runs the mod's **0.9.2.2-cooked** class. Export-count check
+(mod vs current base):
+- **8 low-risk** (identical structure, only the scalar differs): MeatMan 71=71, OrgaMech 73=73, ShieldOfficer 122=122,
+  Toothy 783=783, + the 4 DataAssets.
+- **3 drifted** (base grew exports): **MotherCourage 141 vs 182 (+41)**, **Opal 385 vs 417 (+32)**,
+  **BPC_IncomingDamageMod 464 vs 497 (+33)**. Same failure class as HeavyRifle's `BP_WPN_HRF05`
+  (`ObjectSerializationError`). Shipping stale versions here reverts base content and risks a crash. Notably
+  MotherCourage/OrgaMech are the two the author already flags as freezing on death.
+
+**Exact runtime symptom on 24097213 not yet confirmed** — could be hard crash (drifted boss spawns), silent no-op
+(override fails to bind → bosses stay at 1e9), or loads-but-reverted. The low-risk 8 almost certainly still apply.
+Arbiter = an in-game launch, as with HeavyRifle.
+
+### Repo scaffold (this session)
+- `upstream/UnkillablesRebalance_0.9.2.2/` — pristine `153_` pak (cooked binaries gitignored) + original `.7z`.
+- `docs/diagnosis.md`, `docs/rebalance-values.json`, `README.md`, `WORKLOG.md`, `.gitignore`. `dist/`, `tools/`, `work/`
+  present (empty / scratch).
+
+### Fix strategy (documented, not yet built)
+Rebalance is pure scalars → a pak is unavoidable (JSON can't express BP CDO health or bytecode constants). Two paths
+(see diagnosis): **A** rebase the mod's overrides via retoc (clean for the 8, still stale for the 3); **B** patch the
+**current base** scalars via retoc `to-legacy` → byte-patch → `to-zen` (most correct, no drift; more work). Likely
+hybrid: A for the 8, B for the drifted 3. **retoc is not on this machine** (was gitignored on the D: machine that built
+HeavyRifle) — a build needs it fetched (trumank/retoc v0.1.5) + a launch on 24097213 to verify.
+
+### Next (decision pending with user)
+- [ ] Choose build approach (A / B / hybrid) for the drifted 3.
+- [ ] Fetch retoc, build the fixed `153` pak, `retoc verify` + decode-verify the values.
+- [ ] In-game test on build 24097213 (kill each boss; confirm Grabber swipe-not-grab; check MotherCourage/OrgaMech
+      death anim).
+- [ ] (optional) confirm original-author permission before any public redistribution.

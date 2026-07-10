@@ -1,0 +1,54 @@
+{
+  "_comment": "Distilled rebalance the mod applies, datamined from 153_UnkillablesRebalance_P vs current base (0.9.3.9.2 / build 24097213) via the forever-winter-datamine CUE4Parse decoder. This is the ground truth any rebuilt pak must reproduce. Values are float32. null-import diffs from the isolated mount are excluded — these are the REAL changes only.",
+  "target_game_build": "0.9.3.9.2 (24097213)",
+  "mod_version": "0.9.2.2 (Nexus #68)",
+  "boss_health": {
+    "_comment": "FWHealthComponent DefaultHealth + DefaultMaxHealth in each boss's cooked BP CDO. Removes invincibility (1e9 / 9e8) -> finite killable HP.",
+    "BP_AI_Euruska_MeatMan":        { "package": "/Game/FW/AI/Characters/Euruska/MeatMan/BP_AI_Euruska_MeatMan",           "DefaultHealth_base": 1000000000, "DefaultHealth_mod": 330000, "base_export_count": 71,  "mod_export_count": 71,  "structural_drift": false },
+    "BP_AI_Euruska_OrgaMech":       { "package": "/Game/FW/AI/Characters/Euruska/OrgaMech/BP_AI_Euruska_OrgaMech",         "DefaultHealth_base": 1000000000, "DefaultHealth_mod": 286870, "base_export_count": 73,  "mod_export_count": 73,  "structural_drift": false },
+    "BP_AI_Euruska_ShieldOfficer":  { "package": "/Game/FW/AI/Characters/Euruska/ShieldOfficer/BP_AI_Euruska_ShieldOfficer","DefaultHealth_base": 1000000000, "DefaultHealth_mod": 328000, "base_export_count": 122, "mod_export_count": 122, "structural_drift": false },
+    "BP_Mech_Toothy":               { "package": "/Game/FW/AI/Characters/Euruska/Toothy/BP_Mech_Toothy",                   "DefaultHealth_base": 900000000,  "DefaultHealth_mod": 308700, "base_export_count": 783, "mod_export_count": 783, "structural_drift": false },
+    "BP_AI_Eurasia_MotherCourage":  { "package": "/Game/FW/AI/Characters/Eurasia/MotherCourage/BP_AI_Eurasia_MotherCourage","DefaultHealth_base": 1000000000, "DefaultHealth_mod": 372000, "base_export_count": 182, "mod_export_count": 141, "structural_drift": true },
+    "BP_AI_Eurasia_Opal":           { "package": "/Game/FW/AI/Characters/Eurasia/Opal/BP_AI_Eurasia_Opal",                 "DefaultHealth_base": 1000000000, "DefaultHealth_mod": 213000, "base_export_count": 417, "mod_export_count": 385, "structural_drift": true }
+  },
+  "stalker_aidef": {
+    "_comment": "4 Grabber/Stalker AIDEF DataAssets. DamageToStagger 20000->1000 = 20x easier to stun. SyncKillMaxPlayerHealth 2000->1000 = no sync-kill (instakill) grab unless player already below 1000 hp.",
+    "files": [
+      "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker",
+      "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_HK",
+      "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_Pregnant_Quest",
+      "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_Underground"
+    ],
+    "DamageToStagger":        { "base": 20000, "mod": 1000 },
+    "SyncKillMaxPlayerHealth": { "base": 2000,  "mod": 1000 },
+    "structural_drift": false
+  },
+  "bpc_incoming_damage_mod": {
+    "_comment": "/Game/FW/AI/Characters/Shared/BPC_IncomingDamageMod — shared damage-mod component. 19 float constants in Kismet bytecode (ordered EX_FloatConst; the small ints 1-9 are unchanged segment counts). These are armored-boss body/zone HP thresholds; the mod scales them down so armour zones are destroyable. base gained +33 exports vs mod (structural drift).",
+    "package": "/Game/FW/AI/Characters/Shared/BPC_IncomingDamageMod",
+    "base_export_count": 497,
+    "mod_export_count": 464,
+    "structural_drift": true,
+    "ordered_float_constant_changes": [
+      { "index": 20, "base": 168700, "mod": 61870 },
+      { "index": 21, "base": 168700, "mod": 61870 },
+      { "index": 22, "base": 168700, "mod": 61870 },
+      { "index": 23, "base": 168700, "mod": 61870 },
+      { "index": 24, "base": 168700, "mod": 108700 },
+      { "index": 25, "base": 168700, "mod": 108700 },
+      { "index": 26, "base": 210000, "mod": 72000 },
+      { "index": 27, "base": 168700, "mod": 108700 },
+      { "index": 28, "base": 168700, "mod": 108700 },
+      { "index": 29, "base": 168700, "mod": 108700 },
+      { "index": 30, "base": 168700, "mod": 108700 },
+      { "index": 31, "base": 168700, "mod": 108700 },
+      { "index": 32, "base": 126000, "mod": 86870 },
+      { "index": 33, "base": 126000, "mod": 86870 },
+      { "index": 34, "base": 210000, "mod": 43000 },
+      { "index": 35, "base": 283500, "mod": 128000 },
+      { "index": 36, "base": 283500, "mod": 128000 },
+      { "index": 37, "base": 330000, "mod": 128000 },
+      { "index": 38, "base": 210000, "mod": 43000 }
+    ]
+  }
+}
