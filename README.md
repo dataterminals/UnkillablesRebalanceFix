@@ -4,7 +4,7 @@ A compatibility repair of the community mod **Unkillables Rebalance** for
 *The Forever Winter* (Nexus mod [#68](https://www.nexusmods.com/theforeverwinter/mods/68)),
 so it works again on the current game build.
 
-> **Status:** **fix built & statically verified** — awaiting the in-game test on build **0.9.3.9.2** (24097213).
+> **Status:** **rebuilt & statically verified on build `24501089`** (2026-08-01) — awaiting the in-game test.
 > The mod ships for game **0.9.2.2**; root cause is cooked-asset version drift (same failure class as
 > `HeavyRifleRebalanceFix`). The rebuilt pak is in [`dist/UnkillablesRebalanceFix/`](dist/UnkillablesRebalanceFix).
 > See [`docs/fix-notes.md`](docs/fix-notes.md), [`docs/diagnosis.md`](docs/diagnosis.md) and [`WORKLOG.md`](WORKLOG.md).

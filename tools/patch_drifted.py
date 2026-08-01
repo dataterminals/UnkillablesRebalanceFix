@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Patch the CURRENT base cooked assets with ONLY the mod's rebalanced scalars changed
-(Option B). Keeps the current 0.9.3.9.2 structure so we don't ship stale 0.9.2.2 bytecode /
+(Option B). Keeps whatever structure the CURRENT base cook has so we don't ship stale bytecode /
 revert base content / crash with ObjectSerializationError.
 
 Covers all 6 boss BPs + BPC. (The 4 Stalker AIDEF DataAssets stay Option-A rebased in

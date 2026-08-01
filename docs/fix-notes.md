@@ -1,6 +1,8 @@
 # Fix notes — what changed and how to test
 
-Target build: **0.9.3.9.2** (24097213). Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
+Target build: **`24501089`** (rebuilt 2026-08-01). Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
+The strategy below was worked out on 0.9.3.9.2 (24097213) and is unchanged; only the build the pak is
+extracted from moves. This mod ships whole copies of game files, so it must be rebuilt after every patch.
 
 > **Update 2026-07-10 (v1.1):** the pending in-game test fired and it **crashed** — a community
 > member hit `ObjectSerializationError` on `BP_AI_Euruska_MeatMan` (a boss we'd filed "low-risk").
@@ -65,7 +67,7 @@ loader + pak (remove, don't just toggle). No TFWWorkbench dependency — this is
 > mod first — don't run both at once. Keep your mod loader up to date, and after any game update, fully
 > remove and re-add the loader and this mod rather than just toggling it off and on.
 
-## Test checklist (build 24097213)
+## Test checklist (build 24501089)
 
 1. **Baseline (optional):** original mod → watch for a crash / no-effect on a rebalanced boss. Fixed mod → neither.
 2. Reaches main menu and loads a mission without crashing.
