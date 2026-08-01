@@ -238,12 +238,20 @@ echo "[6/6] verify"
 #
 # PAIRING IS THE DELICATE PART. In the staged mount both the base and the mod entry are
 # enumerated (that is why the decoder reports more matches than the base run does). Where the
-# package path is byte-identical the mod wins the lookup and both writes land in one file, so
-# the dump is the mod's. Where the path differs only by CASE -- this mod ships
-# Euruska/Toothy/ while the live build has Euruska/TOOTHY/ -- the decoder writes TWO files,
-# one base and one mod, and picking the wrong one silently compares base against base and
-# always passes. So the shipped side is matched by EXACT case, taken from the mod's own
-# filelist, and a case-insensitive fallback is reported rather than used quietly.
+# path differs only by CASE -- this mod ships Euruska/Toothy/ while the live build has
+# Euruska/TOOTHY/ -- the decoder writes TWO files, one base and one mod, and picking the wrong
+# one silently compares base against base and always passes. So the shipped side is matched by
+# EXACT case, taken from the mod's own filelist, and a case-insensitive fallback is reported
+# rather than used quietly.
+#
+# Where the package path is byte-identical, however, BOTH copies write to the SAME filename and
+# the last write wins. This script used to assert "the mod wins the lookup" there; that is not
+# true, and it is the single most dangerous line this file ever contained. Which copy survives
+# is decided by mount iteration order, which CUE4Parse does not fix (measured 2026-08-01 -- nine
+# mounts of one pak returned the mod's copy for 0, 3, 4 or 7 of its 7 packages across runs;
+# renaming the container 000_/aaa_/zzz_ changed nothing). Exact-case pairing does not help here
+# because there is only ever one file. That is why the loop below carries an explicit
+# provenance gate instead of an assumption.
 "$PY" - "$SHIPLIST/filelist.txt" "$BASEDUMP/dumptree/base" "$SHIPDUMP/dumptree/shipped" <<'PY' || FAIL=1
 import json, os, sys
 
@@ -326,6 +334,26 @@ for w in want:
         continue
     if snote or bnote:
         print("  NOTE %-40s %s" % (name, bnote or snote))
+    # PROVENANCE GATE. Everything below this line compares the shipped dump against the base
+    # dump, which is worthless if the "shipped" dump IS the base copy. In the staged full mount
+    # both copies are enumerated and, where the package path matches byte-for-byte, both write
+    # to the same filename -- last write wins, and CUE4Parse resolves colliding paths
+    # non-deterministically (measured 2026-08-01). Exact-case pairing above only rescues the
+    # case-differing packages; for the identical-path ones nothing forces the mod to win. A
+    # base-vs-base comparison trivially reports "0 dropped", which is the false pass this whole
+    # script exists to prevent. Every package this mod ships changes at least one scalar, so
+    # byte-equality with base means the mount graded vanilla -- not that the mod is clean.
+    try:
+        with open(bf, "rb") as fb, open(sf, "rb") as fs:
+            if fb.read() == fs.read():
+                print("  FAIL %-40s dump is IDENTICAL to base -- the mount graded the base"
+                      % name)
+                print("       copy, so this comparison proves nothing. Re-run; if it repeats,")
+                print("       mount the pak in isolation instead of staging the full game.")
+                bad = 1
+                continue
+    except OSError:
+        pass
     bsh, ssh = shapes(bf), shapes(sf)
     if bsh is None or ssh is None:
         print("  FAIL %-40s unreadable dump" % name)

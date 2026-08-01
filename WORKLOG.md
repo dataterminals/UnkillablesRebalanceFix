@@ -159,3 +159,82 @@ before).
       ShieldOfficer / Toothy / MotherCourage / Opal → each killable, Grabber swipes (no insta-grab),
       **no `ObjectSerializationError`**.
 - [ ] Regenerate the dist zip + re-publish #124 once the launch is green.
+
+---
+
+## 2026-08-01 — Session 4: rebuilt for hotfix build 24501089 (SylG5)
+
+**Goal:** the shipped pak was found to REVERT the 2026-07-31 hotfix. Rebuild and verify.
+
+### The finding, reproduced at the byte level
+`dist/` was built 2026-07-20, so its Option-B extraction predates the hotfix. Confirmed independently
+of the decoder, by string-searching the `to-legacy` output of both copies of `BPC_IncomingDamageMod`:
+
+| name | live base | shipped (stale) |
+|---|---|---|
+| `Attack Add` | x3 | **x0** |
+| `Modify Attack Add` | x1 | **x0** |
+| `Big boi Sniper Rifles` | x1 | **x0** |
+| `Noisy Player` | x1 | **x0** |
+
+That is the 13 dropped property shapes stated in bytes. Installing the old pak put the pre-hotfix
+component back — silently undoing the weapon damage buff.
+
+### Machine portability — `build_fix.sh` could not run here at all
+It hardcoded `H:` (SylDesk's NVMe), which does not exist on SylG5. Given the same per-machine
+resolution `verify_build.sh` already uses: env override → candidate list, `D:` before `H:`, with the
+script's own location as the first candidate for `REPO`. Not a find-and-replace, which would just
+break SylDesk. `RETOC` is resolved the same way (`tools/retoc/` is gitignored, so a fresh checkout
+has none; the sibling repos that vendored the same v0.1.5 are listed as fallbacks).
+
+### Option-A source: `upstream/` is not on this machine
+`upstream/UnkillablesRebalance_0.9.2.2/` holds the pristine Nexus pak, and its cooked binaries are
+gitignored — deliberately, as third-party IP. So a checkout on a machine that never held the Nexus
+archive does not have it, and SylG5 is exactly that. The build now falls back to the **previously
+shipped `dist/` pak** for the 4 Stalker AIDEFs, which is sound because those 4 are upstream's own
+payload already rebased once. It is only sound *because it is proven*, by two gates that are not
+optional:
+- **`[2b]` provenance gate** — the staged extract must carry the mod's `1000.0f` ×2, and must differ
+  from the base extract. Measured: retoc extracts **both** colliding copies onto the same output
+  path, so last-write-wins decides which survives. Without this gate a lost race ships base-HP
+  Stalkers with no error anywhere.
+- **`[6c]` regression gate** — the rebuilt AIDEF payloads came out **byte-identical** to the ones
+  already shipping, all 4. That is what makes the substitution provably lossless.
+
+### Two more gates added
+- **`[6b]` isolated read-back.** The built pak is re-extracted mounted alone with `global.*`. No base
+  copy present → no collision possible → the bytes are certainly the mod's. Measured: `.uexp`
+  payloads are identical between an isolated and a staged extract; `.uasset` headers are not
+  (isolation cannot resolve base imports), so compare payloads across mounts, headers only within.
+- **`[7]` FPackageId parity** vs `tools/expected_package_ids.txt` (captured from the last known-good
+  pak). An override binds by FPackageId, derived from the package path, so a moved id is a silent
+  no-op override. This also pins the `Euruska/Toothy` casing the live build spells `TOOTHY` —
+  Windows' case-insensitive filesystem hides a wrong-case copy, the id does not. 11/11 match.
+
+### `verify_build.sh` — removed a false claim
+Its pairing comment asserted that where the package path is byte-identical "the mod wins the lookup".
+**That is not true**, and it was the most dangerous line in the file: both copies write to the same
+filename and the last write wins, non-deterministically. Exact-case pairing does not help there
+because there is only ever one file. Replaced with a real **provenance gate** — the shipped dump must
+differ from the base dump, since every package this mod ships changes at least one scalar.
+**Negative-tested:** swapping the base BPC dump in makes it FAIL (exit 1) where the old logic reported
+`OK BPC 276/276 (+0)` — the exact false pass.
+
+### Result — rebuilt and verified on 24501089
+- Build: all gates green. `retoc verify` verified; 11 packages; `.ucas` **526,684 → 542,979 B**
+  (`.pak` unchanged). Scalars re-applied and re-verified in order (19 BPC doubles, 6 boss HP pairs).
+- `verify_build.sh`: **11 shipped packages, 17 dumps, 0 uncovered · 4519 references, 0 dangling ·
+  0 properties dropped.** `BPC_IncomingDamageMod` now **276 base / 276 ship (+0)**, was dropping 13.
+- Provenance confirmed by value, not just by hash: all 11 shipped dumps carry the mod's numbers and
+  **none** of the base numbers — boss HP ×2 each with `1E+09` absent, Stalkers `1000` ×2, BPC
+  `61870`×4 `108700`×7 `86870`×2 `128000`×3 `43000`×2 `72000`×1 = the 19 patched doubles.
+- Deployed to MO2 hash-verified. Left **disabled** in `profiles/Default/modlist.txt` as found.
+
+**Unchanged risk:** both checks are structural. Blueprint graph / Kismet bytecode changes move
+neither the package path nor the property shape, so this does **not** clear the 4 Option-A Stalker
+AIDEFs, still frozen at the mod's 0.9.2.2 cook. Separate and unresolved.
+
+### Next (user)
+- [ ] In-game test on 24501089 (never launched here — Steam `AutoUpdateBehavior 0`, so a launch
+      risks pulling another build mid-work).
+- [ ] Re-publish Nexus #124 with the v1.2 zip once the launch is green.

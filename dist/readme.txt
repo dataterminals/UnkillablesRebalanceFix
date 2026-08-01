@@ -1,4 +1,4 @@
-Unkillables Rebalance — Fix  (rebuilt for The Forever Winter build 0.9.3.9.2 / 24097213)
+Unkillables Rebalance — Fix  (rebuilt for The Forever Winter build 24501089, 2026-08-01)
 =========================================================================================
 
 Original mod: "Unkillables Rebalance" (Nexus #68). This is a community compatibility
@@ -33,7 +33,7 @@ INSTALL
 
   Remove the ORIGINAL mod's 153_ files first — don't run both.
 
-TEST CHECKLIST (build 24097213)
+TEST CHECKLIST (build 24501089)
   1. Reaches main menu and loads a mission without crashing.
   2. Each rebalanced boss can be staggered and killed by weapons (not just the DetPack loop);
      no ObjectSerializationError for any BP_AI_* / BP_Mech_Toothy / BPC_IncomingDamageMod.

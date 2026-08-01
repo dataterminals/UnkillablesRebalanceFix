@@ -1,0 +1,25 @@
+# Expected FPackageId -> package name for the 11 packages 153_UnkillablesRebalance_P ships.
+#
+# Captured from the 2026-07-20 dist pak, which the WORKLOG records as "FPackageIds 11/11
+# byte-identical to the original working mod" (retoc manifest diff against the pristine
+# 0.9.2.2 upstream). A pak override binds to base BY FPackageId, so these ids ARE the
+# binding contract: if one changes, that package silently stops overriding anything and the
+# mod half-applies with no error anywhere.
+#
+# retoc derives the id from the package PATH, so this file is the guard on the repath step
+# in build_fix.sh -- including the Euruska/Toothy casing, which the live build spells
+# Euruska/TOOTHY. Windows' case-insensitive filesystem hides a wrong-case copy; the id does
+# not. Asserted by build_fix.sh step [7/7].
+#
+# Format: <id> <packagename>
+112030442ab801de00000001 /Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_Pregnant_Quest
+142866b0da1b6f4400000001 /Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_HK
+15e099ae5704b02900000001 /Game/FW/AI/Characters/Shared/BPC_IncomingDamageMod
+32426c82d228b35500000001 /Game/FW/AI/Characters/Euruska/OrgaMech/BP_AI_Euruska_OrgaMech
+3b9c4ca97da9321e00000001 /Game/FW/AI/Characters/Eurasia/MotherCourage/BP_AI_Eurasia_MotherCourage
+760f6c4ca8015a1d00000001 /Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_Underground
+88bc90a4f6a1b3a700000001 /Game/FW/AI/Characters/Eurasia/Opal/BP_AI_Eurasia_Opal
+d5ec4e4ddcb1517500000001 /Game/FW/AI/Characters/Euruska/MeatMan/BP_AI_Euruska_MeatMan
+e47a982052b1be7700000001 /Game/FW/AI/Characters/Euruska/ShieldOfficer/BP_AI_Euruska_ShieldOfficer
+ed00ed514ebbd0a800000001 /Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker
+f5344b6c7a78c09900000001 /Game/FW/AI/Characters/Euruska/Toothy/BP_Mech_Toothy
