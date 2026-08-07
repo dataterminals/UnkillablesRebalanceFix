@@ -3,6 +3,8 @@
 **/obj/
 tools/**/bin/
 tools/**/obj/
+__pycache__/
+*.pyc
 
 # Decode / staging scratch (never committed)
 decode-out/

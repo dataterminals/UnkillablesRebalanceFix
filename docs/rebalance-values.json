@@ -1,7 +1,8 @@
 {
   "_comment": "Distilled rebalance the mod applies, datamined from 153_UnkillablesRebalance_P vs base via the forever-winter-datamine CUE4Parse decoder. This is the ground truth any rebuilt pak must reproduce. Values are float32. null-import diffs from the isolated mount are excluded — these are the REAL changes only.",
   "_comment_builds": "The VALUES below were datamined against 0.9.3.9.2 (24097213) and have not been re-datamined since; they have been re-verified present and correct in the shipped pak on each rebuild, most recently 24501089 (2026-08-01). target_game_build is what the CURRENT dist pak was built and verified against — it is not the build the values were derived on, and the two are expected to diverge. The export counts and structural_drift flags below are still stamped to 24097213.",
-  "target_game_build": "24501089",
+  "_comment_pending_rebuild": "2026-08-05: target_game_build below is the build the pipeline now TARGETS (Steam reports 24536482), NOT one a pak has been built against — dist/ is still the 2026-08-01 24501089 pak until tools/build_fix.sh is re-run on Windows. Re-stamp this comment away once that build lands. If patch_stalker_aidef.py or patch_drifted.py aborts on a count assertion, a base default moved on 24536482 and the values here need re-datamining before the numbers below can be trusted.",
+  "target_game_build": "24536482",
   "mod_version": "0.9.2.2 (Nexus #68)",
   "boss_health": {
     "_comment": "FWHealthComponent DefaultHealth + DefaultMaxHealth in each boss's cooked BP CDO. Removes invincibility (1e9 / 9e8) -> finite killable HP.",
@@ -14,6 +15,7 @@
   },
   "stalker_aidef": {
     "_comment": "4 Grabber/Stalker AIDEF DataAssets. DamageToStagger 20000->1000 = 20x easier to stun. SyncKillMaxPlayerHealth 2000->1000 = no sync-kill (instakill) grab unless player already below 1000 hp.",
+    "_comment_build_strategy": "2026-08-05: these moved from Option A (rebase the mod's frozen 0.9.2.2 cook) to Option B (patch the current base cook), via tools/patch_stalker_aidef.py, after players reported crashing when SHOOTING the Grabber. structural_drift below is stamped to 24097213 and was derived from export counts, which do not capture the failure mode that matters here: UE5 unversioned property serialization identifies properties by schema INDEX, so a reordered/added/removed UPROPERTY mis-decodes a frozen cook without changing any export count. Treat 'structural_drift: false' as unmeasured for this group, not as reassurance. build_fix.sh step [2b] prints the real base-vs-frozen comparison — record it and correct this flag from what it measures.",
     "files": [
       "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker",
       "/Game/FW/AI/Characters/Euruska/Stalker/AIDEF_Euruska_Stalker_HK",

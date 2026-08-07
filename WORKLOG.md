@@ -238,3 +238,98 @@ AIDEFs, still frozen at the mod's 0.9.2.2 cook. Separate and unresolved.
 - [ ] In-game test on 24501089 (never launched here — Steam `AutoUpdateBehavior 0`, so a launch
       risks pulling another build mid-work).
 - [ ] Re-publish Nexus #124 with the v1.2 zip once the launch is green.
+
+---
+
+## 2026-08-05 — Session 5: Grabber shooting crash → the last 4 Option-A assets moved to Option B
+
+**Report:** a community member (Frnix) says the game **crashes when shooting the Grabber**, and
+others report issues too. No crash log yet (see "What the log did not show" below).
+
+### Two separate problems, both real
+
+**1. The pak is stale — the game patched.** Steam now reports build **24536482**; `dist/` was
+built 2026-08-01 against **24501089**. Every Option-B asset in it was extracted from the old
+build, so the pak is in exactly the state that caused the v1.2 incident (silently reverting a
+hotfix). This alone explains "other people are having issues too" — a game patch breaks this
+mod for everyone until it is rebuilt, which is the standing warning in `build_fix.sh`'s header.
+
+**2. The Grabber crash points at the last Option-A holdouts.** The 4 Stalker AIDEF DataAssets
+were the only assets still shipping the mod's **frozen 0.9.2.2 cook**, and the only
+Grabber-specific assets in the pak. Session 4 left them flagged as "separate and unresolved".
+
+**Why the justification for keeping them was wrong.** The comment in `build_fix.sh` /
+`patch_drifted.py` read *"DataAssets carry no Kismet bytecode, so there is no
+serialization-crash surface."* Absence of bytecode is not the relevant property. UE5 cooked
+assets use **unversioned property serialization**: a property is identified by its **index in
+the class's property schema**, not by name. If the AIDEF class gained / removed / reordered a
+`UPROPERTY` since 0.9.2.2, the frozen bitstream decodes into the **wrong fields** — object and
+soft-object pointers included. That is a property-layout problem, and it is if anything *worse*
+for a bare DataAsset than for a BP, because the payload is almost entirely property data.
+
+The failure that produces is a crash **when a mis-decoded field is dereferenced, not at load** —
+which fits the report exactly: not a startup crash, not a spawn crash, but a crash when you
+*shoot* it and the damage path reads `DamageToStagger` / the stagger + sync-kill fields.
+
+This is the **same mistake twice**. 2026-07-10 it was "export counts match, so the cook is
+safe" (MeatMan crashed). 2026-08-05 it is "no bytecode, so the cook is safe". Both were
+reasoning about why a frozen cook *ought* to load, in place of evidence that it does.
+
+### What the log did not show — being straight about it
+A `UE4SS_8.log` was supplied from SylG5. It contains **no crash and no
+`ObjectSerializationError`**: it runs 16:45:32 → 16:47:37, loads AshenMesa, and stops with no
+shutdown line. That abrupt end is *consistent* with a hard crash but proves nothing, and UE4SS
+does not capture UE serialization errors in the first place — those land in `…\Saved\Crashes\`
+and `…\Saved\Logs\ForeverWinter.log`. Its 3 `FAILED` lines are benign (2 StaggerControl hook
+retries, 1 known UE4SS signature miss). **So the diagnosis above is still inference, not a
+confirmed root cause.** Get the real crash log before publishing.
+
+Also noted from that log, as an interaction to rule out rather than a finding: a Lua mod
+**`TFWStaggerControl`** is hooking `GA_Player_HitReaction:K2_ActivateAbility` and
+`BP_PlayerBase:ReceiveAnyDamage` — the same *stagger* subsystem, though on the player side, not
+the Grabber's.
+
+### The change (repo work only — nothing was built or launched this session)
+Built on a Linux container with no game and no retoc, so **no pak was produced and no claim
+below is runtime-verified**.
+
+- **New `tools/patch_stalker_aidef.py`** — patches the 4 AIDEFs from current base:
+  `DamageToStagger` 20000→1000, `SyncKillMaxPlayerHealth` 2000→1000 (float32). Self-verifying
+  like `patch_drifted.py`: each base value must occur **exactly once** per file or it aborts.
+  Resolves both offsets against the unmodified buffer before writing, because the mod sets both
+  scalars to the *same* value (1000.0f) and a chained replace would re-match its own output.
+- **`tools/build_fix.sh` — Option A retired entirely.** All 11 packages now come from the live
+  game. Removed: the `MODSRC`/`upstream/` resolution block, the `zzz_` collision staging, the
+  `[2b]` provenance gate, and with them the **~48 GB hardlink staging** (only `global.*` is
+  linked now, for the isolated read-back). `scriptobjects.bin` now comes from the base extract.
+  Steps renumbered to `/6`.
+- **`[5c]` content gate A is INVERTED.** It demanded the AIDEFs be byte-**identical** to the
+  shipped pak; under Option B they must **differ**. Left as-is it would have failed every
+  correct build.
+- **New `[2b]` drift diagnostic** — prints base-vs-frozen `.uexp` sizes and the string-set
+  difference for each AIDEF, the same evidence shape that proved MeatMan (5931 vs 5904 B, base
+  having gained `"Sync Kill in Log"`). Evidence only; it does not gate.
+- `expected_package_ids.txt` **unchanged** — retoc derives the id from the destination package
+  path and that path has not moved, so `[6]` must still report 11/11. If it does not, the
+  assemble step wrote somewhere new.
+
+### A bug the tests caught before it shipped
+Gate A was first written as "exactly 8 bytes must differ from base" — 2 × float32. That is
+**wrong**: two float32s *occupy* 8 bytes, but how many bytes *change* depends on the values.
+`20000→1000` moves 3 bytes and `2000→1000` moves 1, so a correct build differs by **4**, and the
+gate would have rejected it. Replaced with a semantic check: locate each base scalar, require
+the mod value there, and require every other byte to be untouched. Found by running the gate
+against synthetic fixtures — the patcher and the gate were both exercised that way (happy path,
+moved base default, ambiguous pattern, re-run, unpatched variant, over-patch, fresh checkout).
+
+### Next (user) — nothing here is verified until these run
+- [ ] Get Frnix's actual crash log (`…\Saved\Crashes\`, `ForeverWinter.log`). Confirm it names a
+      Stalker AIDEF. If it names something else, this diagnosis needs revisiting.
+- [ ] `bash tools/build_fix.sh` on 24536482. If `patch_stalker_aidef.py` aborts on a count
+      assertion, the devs moved a base default — re-datamine and update `rebalance-values.json`.
+- [ ] Paste the `[2b]` diagnostic output into this log; correct
+      `rebalance-values.json`'s `stalker_aidef.structural_drift` from what it actually measures.
+- [ ] `bash tools/verify_build.sh` → expect 0 dangling, 0 dropped.
+- [ ] In-game on 24536482: **shoot a Grabber repeatedly** (Frnix's exact repro), bosses killable,
+      `…\Saved\Crashes\` empty.
+- [ ] Only then: regenerate the zip and publish v1.3.

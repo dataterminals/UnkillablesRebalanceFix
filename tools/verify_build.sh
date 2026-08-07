@@ -8,19 +8,25 @@
 #   that, not the build. See AllWeaponsUnlockableFix/tools/verify_softrefs.py for the full story.
 #
 # THIS MOD'S EXPOSURE
-#   It is a whole-asset override of 11 packages (tools/build_fix.sh):
-#     Option A, rebased from the MOD's 0.9.2.2 cook  -> 4 Stalker AIDEF DataAssets
-#     Option B, patched from the CURRENT BASE cook    -> 6 boss BPs + BPC_IncomingDamageMod
+#   It is a whole-asset override of 11 packages (tools/build_fix.sh). Since 2026-08-05 ALL 11
+#   are built the same way -- extracted from the CURRENT BASE cook and byte-patched with only
+#   the rebalanced scalars ("Option B"): 6 boss BPs + BPC_IncomingDamageMod via
+#   patch_drifted.py, and the 4 Stalker AIDEF DataAssets via patch_stalker_aidef.py. Nothing
+#   frozen at 0.9.2.2 ships any more.
 #   Two ways a patch breaks that:
 #     1. a referenced asset is renamed or deleted -> the override points at nothing
 #     2. the devs add a property to an asset      -> our frozen override silently reverts it
-#   Check 3 below is (1). Check 4 is (2), and it is the one that matters most here: the Option-A
-#   AIDEFs are frozen at 0.9.2.2, so anything the devs have added to them since is dropped.
+#   Check 3 below is (1). Check 4 is (2). (2) used to be the check that mattered most, because
+#   the 4 AIDEFs were frozen at 0.9.2.2 and dropped anything the devs added after that. They no
+#   longer are, so a drop here now means the extract is STALE -- i.e. the game patched since
+#   this pak was built -- rather than that a frozen cook is reverting content.
 #
-#   READ THIS BEFORE TRUSTING A PASS. Both checks are structural. Blueprint *graph* content
-#   changes without the package path moving and without the property shape moving, so a clean
-#   run here does NOT prove the Option-A overrides carry current Kismet bytecode. It proves the
-#   pointers resolve and no property was dropped. Nothing automated in this repo proves more.
+#   READ THIS BEFORE TRUSTING A PASS. Both checks are structural: they prove the pointers
+#   resolve and no property was dropped, and nothing automated in this repo proves more. What
+#   they no longer have to carry is the frozen-cook risk -- an Option-B asset is the same cook
+#   the game itself loads apart from the patched scalars, so there is no stale bytecode and no
+#   stale property layout to go wrong. The residual risk is simply age: re-run build_fix.sh
+#   after every game patch.
 #
 #   bash tools/verify_build.sh
 #

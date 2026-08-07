@@ -4,10 +4,15 @@ A compatibility repair of the community mod **Unkillables Rebalance** for
 *The Forever Winter* (Nexus mod [#68](https://www.nexusmods.com/theforeverwinter/mods/68)),
 so it works again on the current game build.
 
-> **Status:** **rebuilt & statically verified on build `24501089`** (2026-08-01) — awaiting the in-game test.
-> The mod ships for game **0.9.2.2**; root cause is cooked-asset version drift (same failure class as
-> `HeavyRifleRebalanceFix`). The rebuilt pak is in [`dist/UnkillablesRebalanceFix/`](dist/UnkillablesRebalanceFix).
-> See [`docs/fix-notes.md`](docs/fix-notes.md), [`docs/diagnosis.md`](docs/diagnosis.md) and [`WORKLOG.md`](WORKLOG.md).
+> **Status: REBUILD REQUIRED — the pak in `dist/` is out of date.** It was built 2026-08-01 against
+> build `24501089`; the live build is now **`24536482`**. Separately, players report the game
+> **crashing when they shoot the Grabber**, and on 2026-08-05 the build pipeline was changed to fix
+> the suspected cause — the 4 Stalker/Grabber DataAssets were the last overrides still frozen at the
+> mod's 0.9.2.2 cook and now build from current base like everything else. **That change is in the
+> scripts only: `tools/build_fix.sh` has not been re-run, so `dist/` does not contain it yet.**
+> Root cause is cooked-asset version drift (same failure class as `HeavyRifleRebalanceFix`) and, for
+> the Grabber, unversioned-property drift — see [`docs/diagnosis.md`](docs/diagnosis.md),
+> [`docs/fix-notes.md`](docs/fix-notes.md) and [`WORKLOG.md`](WORKLOG.md).
 
 ## What the mod does
 
@@ -26,11 +31,24 @@ TFWWorkbench JSON, no loose files, no meshes. Full value map: [`docs/rebalance-v
 
 ## The problem
 
-The mod's assets were cooked against game **0.9.2.2**. On **0.9.3.9.2** the base boss classes underneath 3 of the 11
-overrides (`MotherCourage`, `Opal`, `BPC_IncomingDamageMod`) have **drifted** (gained exports), so the game loads the
-mod's stale 0.9.2.2 classes — reverting base changes and risking the same `ObjectSerializationError` that broke
-Heavy Rifle Rebalance. The other 8 overrides are structurally identical to current base (only a rebalanced scalar
-differs) and are low-risk. See [`docs/diagnosis.md`](docs/diagnosis.md).
+The mod's assets were cooked against game **0.9.2.2**. A pak override binds to the base package by
+`FPackageId`, so the game loads the mod's stale cook in place of the current one — reverting whatever the
+devs have since changed, and risking the `ObjectSerializationError` that broke Heavy Rifle Rebalance.
+
+The repo originally split the 11 overrides into "drifted" and "low-risk" tiers by export count, and
+rebuilt only the drifted ones from current base. **That triage was wrong twice**, in the same shape both
+times — reasoning about why a frozen cook *ought* to load, rather than evidence that it does:
+
+- **2026-07-10** — MeatMan was "low-risk" on matching export counts, and crashed in-game. All 6 boss BPs
+  moved to the rebuild-from-current-base path.
+- **2026-08-05** — the 4 Stalker/Grabber DataAssets were "no Kismet bytecode, so no crash surface", and
+  players report crashing when they **shoot** the Grabber. Bytecode was never the relevant property: UE5
+  cooked assets use **unversioned property serialization**, which identifies a property by its *index* in
+  the class schema, so a reordered or added `UPROPERTY` makes a frozen cook decode into the wrong fields —
+  crashing when one is *used*, not at load, and without moving a single export count.
+
+So **all 11 overrides now build from the current base cook** with only the rebalanced scalars patched in.
+There is no frozen content left in the pipeline. See [`docs/diagnosis.md`](docs/diagnosis.md).
 
 ## Layout
 
@@ -38,7 +56,7 @@ differs) and are low-risk. See [`docs/diagnosis.md`](docs/diagnosis.md).
 |------|----------|
 | `upstream/` | Pristine extracted original (`153_` pak). Reference only; cooked binaries are gitignored. |
 | `docs/` | Diagnosis, the datamined rebalance value map, fix notes. |
-| `tools/` | `build_fix.sh` (reproducible rebuild) + `patch_drifted.py` (self-verifying scalar patcher). retoc is gitignored. |
+| `tools/` | `build_fix.sh` (reproducible rebuild) + `patch_drifted.py` / `patch_stalker_aidef.py` (self-verifying scalar patchers) + `verify_build.sh` / `verify_softrefs.py`. retoc is gitignored. |
 | `dist/` | **Built fixed mod** — tracked; ships the repaired `153` pak + player `readme.txt`. |
 | `WORKLOG.md` | Running log. |
 

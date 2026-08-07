@@ -2,6 +2,33 @@
 
 Plain-language changelog for the Nexus page. Newest first.
 
+## v1.3 — Grabber shooting-crash fix + rebuild for build 24536482 *(pending — not yet built or tested)*
+
+**If you use this mod, update it once this release is out.** Two things were wrong at once.
+
+**Crashing when you shoot the Grabber.** Players reported the game crashing when they shot a
+Grabber/Stalker. This mod was still shipping its own copies of the four Grabber data files taken
+from the old game version it was originally made for — the last files in the mod that hadn't been
+rebuilt. When the game changed those files' internals, the mod's old copies no longer lined up, so
+the game read the wrong values out of them and crashed the moment it needed one — which is when you
+shoot it. All four are now rebuilt from the **current** game files with only the two rebalance
+numbers changed, the same treatment the bosses got in v1.1. **Nothing in the mod is left over from
+the old game version any more.**
+
+**The game also patched.** The previous release was built for build 24501089 and the game has since
+moved to 24536482, so the mod was out of date regardless — that's likely why more than one person
+started seeing problems around the same time. Everything is re-taken from the current game.
+
+**The rebalance itself is unchanged** — same killable-boss HP, same Grabber changes, same armour
+thresholds.
+
+**To update:** replace your `153_UnkillablesRebalance_P` files (`.pak`, `.ucas`, `.utoc`) with the
+new ones. As always after a game patch, do a clean reinstall of your mod loader (Signature Bypass +
+UE4SS) too — remove and re-add, don't just toggle.
+
+*Status: the fix is written but the pak has not been rebuilt or tested in-game yet, and the exact
+crash has not been confirmed against a crash log. Don't publish this entry until both are done.*
+
 ## v1.2 — rebuilt for the 2026-08-01 hotfix (build 24501089)
 
 **If you use this mod, update it.** The previous build silently undid part of the game's

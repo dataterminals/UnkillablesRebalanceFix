@@ -5,6 +5,21 @@ Method: decoded the mod's pak vs. the live game with the [`forever-winter-datami
 toolchain (base-only mount = vanilla; `global + mod` mount = the mod's own cooked versions), diffed the two, and
 corroborated against the mod's public description.
 
+> **Update 2026-08-05 (v1.3) — the second "structurally safe" call was wrong too.** Players report
+> the game **crashing when they shoot the Grabber**. The 4 Stalker AIDEF DataAssets were the last
+> overrides still shipping the mod's frozen 0.9.2.2 cook, kept there because *"DataAssets carry no
+> Kismet bytecode, so there is no serialization-crash surface."* Bytecode is not the relevant
+> property: UE5 cooked assets use **unversioned property serialization**, where a property is
+> identified by its **index in the class's property schema** rather than by name. A class that
+> gained, removed, or reordered a `UPROPERTY` since 0.9.2.2 makes the frozen bitstream decode into
+> the **wrong fields** — object and soft-object pointers included — which crashes when a field is
+> *dereferenced* (i.e. when you shoot the thing), not at load. **Fix: all 11 overrides now build
+> from current base via Option B; Option A is gone from the pipeline.** The game had also moved
+> 24501089 → **24536482**, so the pak was stale regardless — that part explains why other players
+> saw problems too. *This root cause is inferred from the symptom and the asset inventory; no crash
+> log has been obtained yet (see `WORKLOG.md` Session 5).* Twice now the error has been the same
+> shape: reasoning about why a frozen cook *ought* to load, instead of evidence that it does.
+
 > **Update 2026-07-10 (v1.1) — the in-game arbiter fired, and the "low-risk 8" call was wrong.** A
 > community member crashed on the current build: `ObjectSerializationError` on `BP_AI_Euruska_MeatMan`
 > (`Bad export index 1066192076/32`); removing the pak boots clean. MeatMan was one of the "8 low-risk"

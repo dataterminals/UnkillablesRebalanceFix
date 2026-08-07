@@ -1,14 +1,26 @@
 # Fix notes — what changed and how to test
 
-Target build: **`24501089`** (rebuilt 2026-08-01). Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
-The strategy below was worked out on 0.9.3.9.2 (24097213) and is unchanged; only the build the pak is
-extracted from moves. This mod ships whole copies of game files, so it must be rebuilt after every patch.
+Target build: **`24536482`**. Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
+This mod ships whole copies of game files, so it must be rebuilt after every patch.
+
+> **Update 2026-08-05 (v1.3) — players report crashing when they SHOOT the Grabber, and the last
+> frozen assets are the prime suspect.** The 4 Stalker AIDEF DataAssets were the only overrides
+> still shipping the mod's 0.9.2.2 cook, kept there on the reasoning that *"DataAssets carry no
+> Kismet bytecode, so there is no serialization-crash surface."* That premise is wrong: UE5 cooked
+> assets use **unversioned property serialization**, so a property is identified by its **index** in
+> the class schema, not its name — a class that gained/removed/reordered a `UPROPERTY` since 0.9.2.2
+> makes the frozen bitstream decode into the *wrong fields*, pointers included. That crashes when a
+> field is **used** (when you shoot it) rather than at load, which is the reported symptom.
+> **Fix: all 11 overrides now build from current base. There is no Option A left.** Note the game
+> also moved 24501089 → 24536482, so the pak was stale regardless. *The root cause is inferred, not
+> yet confirmed by a crash log — see `WORKLOG.md`.*
 
 > **Update 2026-07-10 (v1.1):** the pending in-game test fired and it **crashed** — a community
 > member hit `ObjectSerializationError` on `BP_AI_Euruska_MeatMan` (a boss we'd filed "low-risk").
 > Fix: **all 6 boss BPs now build via the "patch current base" path** (v1.0 did only 3); just the 4
 > Stalker DataAssets are still rebased. Removing the pak boots clean; each rebuilt boss is now
-> byte-identical to the current base cook except its 2 health floats. The table/steps below reflect this.
+> byte-identical to the current base cook except its 2 health floats. *(Superseded by the 2026-08-05
+> update above — the Stalker DataAssets are no longer rebased either.)*
 
 ## The change (hybrid rebuild of one pak)
 
@@ -19,8 +31,8 @@ The rebuild reproduces the **identical rebalance** on the current build, per-ass
 
 | Assets | Action | Why |
 |---|---|---|
-| 4× `AIDEF_Euruska_Stalker*` (`_HK` / `_Pregnant_Quest` / `_Underground`) | **rebased** — the mod's own version re-emitted onto the current build (retoc `to-legacy` mod-wins → repath to `/Game` → `to-zen`) | DataAssets carry **no Kismet bytecode**, so there's no serialization-crash surface; only 2 scalars differ. |
-| **All 6 boss BPs** — `MeatMan`, `OrgaMech`, `ShieldOfficer`, `Toothy`, `MotherCourage`, `Opal` — + `BPC_IncomingDamageMod` | **patched current base** — extract the **current** base class, change only the rebalanced scalars (`tools/patch_drifted.py`), repack | ships the current 0.9.3.9.2 structure with only the rebalanced numbers — no stale bytecode. Each boss BP ends up **byte-identical to current base except its 2 health floats**. v1.0 shipped 4 of these as mod-rebases (the "low-risk" call) and one — MeatMan — crashed in-game; export-count parity did not guarantee the stale cook loads. |
+| **All 6 boss BPs** — `MeatMan`, `OrgaMech`, `ShieldOfficer`, `Toothy`, `MotherCourage`, `Opal` — + `BPC_IncomingDamageMod` | **patched current base** — extract the **current** base class, change only the rebalanced scalars (`tools/patch_drifted.py`), repack | ships the current structure with only the rebalanced numbers — no stale bytecode. Each boss BP ends up **byte-identical to current base except its 2 health floats**. v1.0 shipped 4 of these as mod-rebases (the "low-risk" call) and one — MeatMan — crashed in-game; export-count parity did not guarantee the stale cook loads. |
+| 4× `AIDEF_Euruska_Stalker*` (`_HK` / `_Pregnant_Quest` / `_Underground`) | **patched current base** — same treatment, via `tools/patch_stalker_aidef.py` (`DamageToStagger` and `SyncKillMaxPlayerHealth`) | *Changed in v1.3.* These were rebased until 2026-08-05 because "DataAssets carry no Kismet bytecode". Unversioned property serialization makes that irrelevant — a frozen cook mis-decodes against a changed class schema and crashes when a field is **used**, which is why shooting the Grabber is the reported repro. Now the same cook the game itself loads, with 2 scalars moved. |
 
 The rebalanced values (identical to the original mod) are in [`rebalance-values.json`](rebalance-values.json):
 
@@ -67,14 +79,18 @@ loader + pak (remove, don't just toggle). No TFWWorkbench dependency — this is
 > mod first — don't run both at once. Keep your mod loader up to date, and after any game update, fully
 > remove and re-add the loader and this mod rather than just toggling it off and on.
 
-## Test checklist (build 24501089)
+## Test checklist (build 24536482)
 
 1. **Baseline (optional):** original mod → watch for a crash / no-effect on a rebalanced boss. Fixed mod → neither.
 2. Reaches main menu and loads a mission without crashing.
 3. Each boss (MeatMan, OrgaMech, ShieldOfficer, Toothy, Mother Courage, Opal — non-HK) is staggerable and killable by
    weapons; no `ObjectSerializationError` for any `BP_AI_*` / `BP_Mech_Toothy` / `BPC_IncomingDamageMod`.
-4. Grabber/Stalker: ~600-dmg swipe + disengage instead of an insta-kill grab (while you're above 1000 HP).
-5. `…\Saved\Crashes\` stays empty.
+4. **Shoot a Grabber/Stalker repeatedly until it staggers — no crash.** This is the v1.3 repro and the
+   one that matters; item 5 only covers *being grabbed*, which is a different code path. Try the
+   variants you can reach (regular, Underground).
+5. Grabber/Stalker: ~600-dmg swipe + disengage instead of an insta-kill grab (while you're above 1000 HP).
+6. `…\Saved\Crashes\` stays empty — and if it does not, keep the crash log, it is the thing this
+   diagnosis is still missing.
 
 > **In plain terms:** To check it's working: start the game, load a mission, and confirm each boss can be
 > staggered and killed by your weapons without the game crashing. If the game's crash-report folder stays

@@ -3,8 +3,12 @@
 (Option B). Keeps whatever structure the CURRENT base cook has so we don't ship stale bytecode /
 revert base content / crash with ObjectSerializationError.
 
-Covers all 6 boss BPs + BPC. (The 4 Stalker AIDEF DataAssets stay Option-A rebased in
-build_fix.sh — DataAssets carry no bytecode, so no serialization-crash surface.)
+Covers the 6 boss BPs + BPC. The 4 Stalker (Grabber) AIDEF DataAssets are patched the same
+way by its sibling tools/patch_stalker_aidef.py — they used to stay Option-A rebased on the
+reasoning "DataAssets carry no bytecode, so no serialization-crash surface", which was wrong
+and is believed to be what crashed players who SHOT the Grabber (2026-08-05). See that file's
+docstring for why absence of bytecode does not protect against unversioned property drift.
+There is no Option A left in this build.
 
 The 4 "low-risk" boss BPs (MeatMan/OrgaMech/ShieldOfficer/Toothy) were MOVED here from
 Option A after the mod's stale 0.9.2.2 MeatMan cook crashed on 0.9.3.9.2 (community-confirmed
