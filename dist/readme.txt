@@ -15,16 +15,28 @@ WHAT IT DOES (unchanged from the original mod)
 
 WHY A REBUILD
   The original was cooked for game 0.9.2.2. On newer builds its copies of the game's files no
-  longer line up with what the game expects. That caused two crashes:
-    - an out-of-date Meatman crashed the game on startup (fixed in v1.1);
-    - out-of-date Grabber/Stalker data crashed the game when you SHOT a Grabber (fixed in v1.3).
-  Every one of the 11 files this mod replaces is now rebuilt from the CURRENT game files with
-  only the rebalance numbers changed, so they load exactly like the game's own files. Nothing
-  left over from the old game version ships any more.
+  longer line up with what the game expects — an out-of-date Meatman crashed the game on
+  startup back in v1.1. Every one of the 11 files this mod replaces is now rebuilt from the
+  CURRENT game files with only the rebalance numbers changed, so they load exactly like the
+  game's own files. Nothing left over from the old game version ships any more.
 
-  Earlier versions kept the 4 Grabber/Stalker files as-is, on the assumption that plain data
-  files couldn't cause a crash. That was wrong — the game matches data to fields by position,
-  so an out-of-date file quietly reads the wrong values and crashes when one gets used.
+WHAT v1.3 FIXES
+  Build 24536482 rewrote the shared damage component this mod replaces: it added a weapon-
+  suppressor check and a damaged-foe cleanup pass, and made the noise a damaged enemy raises
+  faction-aware. The previous release ships the older version of that component, so installing
+  it put the pre-patch behaviour back — measured against the live game, the old pak is missing
+  9 pieces of that component, including the whole "Check if Weapon Silenced" and "Clean Up
+  Damaged Foes" functions. This build matches the live component exactly, with nothing dropped.
+
+  ABOUT THE "CRASH WHEN SHOOTING THE GRABBER" REPORT
+  This was investigated and the suspected cause has been RULED OUT. The theory was that the
+  mod's 4 Grabber/Stalker data files had gone out of date like the Meatman did. Rebuilding
+  them from the current game produced byte-for-byte the SAME files — so they had never gone
+  stale and could not have been misread. If you still crash when you shoot a Grabber, it is
+  something else, and we need your crash log to find it:
+      ...\Saved\Crashes\   and   ...\Saved\Logs\ForeverWinter.log
+  The stale component described above is a plausible contributor on its own, so try this
+  build first.
 
 INSTALL
   Copy the three files
@@ -43,7 +55,8 @@ TEST CHECKLIST (build 24536482)
   1. Reaches main menu and loads a mission without crashing.
   2. Each rebalanced boss can be staggered and killed by weapons (not just the DetPack loop);
      no ObjectSerializationError for any BP_AI_* / BP_Mech_Toothy / BPC_IncomingDamageMod.
-  3. Shoot a Grabber/Stalker repeatedly until it staggers — no crash. (This is the v1.3 fix.)
+  3. Shoot a Grabber/Stalker repeatedly until it staggers — no crash. (This is the reported
+     problem; its suspected cause was ruled out, so if it still happens, send the crash log.)
   4. Grabber/Stalker swipes for ~600 and disengages instead of insta-grabbing (above 1000 HP).
   5. ...\Saved\Crashes\ stays empty.
 

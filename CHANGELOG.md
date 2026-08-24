@@ -2,32 +2,41 @@
 
 Plain-language changelog for the Nexus page. Newest first.
 
-## v1.3 — Grabber shooting-crash fix + rebuild for build 24536482 *(pending — not yet built or tested)*
+## v1.3 — rebuilt for build 24536482 (2026-08-23)
 
-**If you use this mod, update it once this release is out.** Two things were wrong at once.
+**If you use this mod, update it.** The previous release was built for game build `24501089`. The
+game is now on `24536482`, and on that build the old pak **switches off two pieces of behaviour the
+game patch added.**
 
-**Crashing when you shoot the Grabber.** Players reported the game crashing when they shot a
-Grabber/Stalker. This mod was still shipping its own copies of the four Grabber data files taken
-from the old game version it was originally made for — the last files in the mod that hadn't been
-rebuilt. When the game changed those files' internals, the mod's old copies no longer lined up, so
-the game read the wrong values out of them and crashed the moment it needed one — which is when you
-shoot it. All four are now rebuilt from the **current** game files with only the two rebalance
-numbers changed, the same treatment the bosses got in v1.1. **Nothing in the mod is left over from
-the old game version any more.**
+**What was wrong:** this mod works by shipping its own copies of a few game files. One of them — the
+shared damage component every rebalanced boss and the Grabber use — was rewritten by the game patch
+to add a **weapon-suppressor check** and a **damaged-foe cleanup** pass, and to make the noise a
+damaged enemy raises **faction-aware**. The mod's copy predates all of that, so installing it put
+the older component back: measured against the live game, the old pak is missing 9 of the
+component's pieces, including the whole *"Check if Weapon Silenced"* and *"Clean Up Damaged Foes"*
+functions. In practice that means suppressors and enemy-alert behaviour quietly revert to the
+pre-patch version while the mod is enabled.
 
-**The game also patched.** The previous release was built for build 24501089 and the game has since
-moved to 24536482, so the mod was out of date regardless — that's likely why more than one person
-started seeing problems around the same time. Everything is re-taken from the current game.
+**What changed:** every file is re-taken from the current game and the rebalance re-applied on top.
+The rebuilt pak now matches the live component exactly — nothing dropped. Nothing about the
+rebalance itself moved: boss HP, the Grabber/Stalker changes and the armour thresholds are all
+exactly as before, and ten of the eleven files are byte-for-byte identical to the previous release.
 
-**The rebalance itself is unchanged** — same killable-boss HP, same Grabber changes, same armour
-thresholds.
+**About the "crash when shooting the Grabber" report:** this was investigated and the suspected
+cause has been **ruled out**. The theory was that the mod's four Grabber/Stalker data files, still
+built for the mod's original game version, no longer matched the current game. Rebuilding them from
+the current game produced **byte-for-byte the same files** — so those files had never gone stale,
+and they cannot have been mis-reading. If you are still crashing when you shoot a Grabber, that
+crash is something else and we need your crash log (`…\Saved\Crashes\` and
+`…\Saved\Logs\ForeverWinter.log`) to find it. Note the stale component described above is a
+plausible contributor on its own, so try this build first.
 
 **To update:** replace your `153_UnkillablesRebalance_P` files (`.pak`, `.ucas`, `.utoc`) with the
 new ones. As always after a game patch, do a clean reinstall of your mod loader (Signature Bypass +
 UE4SS) too — remove and re-add, don't just toggle.
 
-*Status: the fix is written but the pak has not been rebuilt or tested in-game yet, and the exact
-crash has not been confirmed against a crash log. Don't publish this entry until both are done.*
+*Note: this mod ships whole copies of game files, so it has to be rebuilt after every game patch. If
+a patch lands and there's no new release here yet, assume it's out of date.*
 
 ## v1.2 — rebuilt for the 2026-08-01 hotfix (build 24501089)
 

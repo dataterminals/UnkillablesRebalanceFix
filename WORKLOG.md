@@ -333,3 +333,113 @@ moved base default, ambiguous pattern, re-run, unpatched variant, over-patch, fr
 - [ ] In-game on 24536482: **shoot a Grabber repeatedly** (Frnix's exact repro), bosses killable,
       `…\Saved\Crashes\` empty.
 - [ ] Only then: regenerate the zip and publish v1.3.
+
+---
+
+## 2026-08-23 — Session 6: built on 24536482, and the Session-5 diagnosis retracted (SylG5)
+
+**Goal:** the repo had sat since 2026-08-01 stamped to `24501089`; Session 5 (2026-08-05, remote,
+no game and no retoc) had rewritten the pipeline for a Grabber shooting-crash but produced no pak.
+This machine has the game at **24536482**, retoc v0.1.5, the CUE4Parse decoder, and a usmap already
+regenerated for 24536482 in the sibling datamine repo. So: build it, and check the claims.
+
+### Result: the pak is built and clean
+- `build_fix.sh`: all gates green. `retoc verify` verified; 11 packages; `[6/6]` **11/11** package
+  ids match `expected_package_ids.txt`.
+- `verify_build.sh`: **11 shipped packages, 17 dumps, 0 uncovered · 4525 references, 0 dangling ·
+  0 properties dropped.**
+- Scalars re-applied and re-verified in order: 19 BPC doubles, 6 boss HP pairs, 4 AIDEF pairs.
+  Health unchanged — 330000 / 286870 / 328000 / 308700 / 372000 / 213000; Stalkers 1000/1000.
+
+### What the rebuild actually fixes — measured, and it is only one package
+Comparing the old shipped pak's payloads against the new build, **10 of the 11 packages are
+byte-identical**. The single exception is `BPC_IncomingDamageMod`: uexp **72,145 → 80,724 B**.
+
+Decoding the *old* pak inside a full **live 24536482** mount (staged as `zzz_URF_P`, so it is the
+mod's copy that resolves — confirmed by value: it carries the mod's `61870`/`128000` and the base
+does not) gives the regression directly rather than by inference:
+
+| BPC_IncomingDamageMod, decoded vs live 24536482 | property shapes | dropped |
+|---|---|---|
+| live base | 285 | — |
+| **new** pak (this build) | 285 | **0** |
+| **old** pak (24501089, currently shipping) | 276 | **9** |
+
+The 9 the old pak drops:
+
+```
+[].FuncMap.Check if Weapon Silenced      (+ .ObjectName, .ObjectPath)
+[].FuncMap.Clean Up Damaged Foes         (+ .ObjectName, .ObjectPath)
+[].ChildProperties[].Inner.Struct        (+ .ObjectName, .ObjectPath)
+```
+
+The name-table diff says what the patch did: `MakeAINoise` → **`MakeAINoiseForFactions`**, plus
+`WeaponUsesSilencer` / `Check if Weapon Silenced`, `Damaged Foes` / `Damaged Foe Factions` /
+`Clean Up Damaged Foes`, and `MakeGameplayTagContainerFromArray`. So 24536482 made the noise a
+damaged enemy raises **faction-aware and suppressor-aware**, and the shipping pak reverts it. Same
+failure class as the v1.2 incident, one build later — and it is the standing consequence of a mod
+that ships whole copies of game files.
+
+### The Session-5 Grabber diagnosis is wrong. Retracted.
+Session 5 moved the 4 Stalker AIDEFs from Option A to Option B because a frozen 0.9.2.2 cook would
+mis-decode against a drifted class schema and crash when a field is dereferenced — i.e. when you
+shoot it. The precondition is that the class drifted. **It did not.** Byte comparison, three ways:
+
+| AIDEF | uexp len | base vs rebuilt | rebuilt vs previously shipped |
+|---|---|---|---|
+| `AIDEF_Euruska_Stalker` | 206 B | 4 bytes @ 102,103,104,136 | **0 — identical** |
+| `AIDEF_Euruska_Stalker_HK` | 205 B | 4 bytes @ 100,101,102,134 | **0 — identical** |
+| `AIDEF_Euruska_Stalker_Pregnant_Quest` | 202 B | 4 bytes @ 98,99,100,132 | **0 — identical** |
+| `AIDEF_Euruska_Stalker_Underground` | 202 B | 4 bytes @ 98,99,100,132 | **0 — identical** |
+
+Those 4 bytes are exactly the 2 rebalanced scalars (`20000→1000` moves 3 bytes, `2000→1000` moves
+1 — the count Session 5 correctly derived when it fixed its first gate formulation). Same length,
+same string set, same layout. The frozen cook and the current base cook agree byte for byte, so
+these files were never mis-decoding and the stated mechanism cannot have applied to them.
+
+`[2b]`'s output, which Session 5 asked to have pasted here, says the same thing and is worth
+reading carefully because its wording oversells it: it reports `delta +0` on every length and
+`payloads DIFFER`, annotated *"same string set — the difference is in values/layout, not names"*.
+The difference is neither values-in-general nor layout: it is precisely the 2 scalars the mod
+patches. `[2b]` cannot tell "drift" from "the rebalance we ourselves applied", so on its own it is
+not the evidence it was designed to be. The three-way comparison above is.
+
+**Option B is kept for the AIDEFs** — nothing frozen should remain in the pipeline, and it drops the
+`upstream/` requirement for good — but it must be described as what it is: a **no-op in shipped
+bytes**, not a fix. `rebalance-values.json` now records `stalker_aidef.structural_drift: false` with
+a `structural_drift_basis` saying it was *measured*, replacing a flag stamped from 24097213 export
+counts that could not have seen this either way.
+
+**So the reported "crash when shooting the Grabber" has no established cause.** The stale BPC above
+is real, is in the damage path, and is a plausible contributor — but that is a different claim, and
+it should not be published as the Grabber fix.
+
+### A gate that would have rejected every correct build
+`[5c]` gate A asserted the AIDEFs must **differ** from the previously shipped pak, on the reasoning
+that under Option B an unchanged payload meant the strategy change had not taken effect. That is an
+assumption about the game, not a property of the build, and it is false here: the first run of this
+session **failed on all 4** with `FAIL payload is UNCHANGED … the Option-A -> Option-B move did not
+take effect`, when the build was correct.
+
+This is the same defect Session 5 caught once already in the same gate ("exactly 8 bytes differ"),
+one level up: both encoded a guess about what the bytes would look like instead of asserting the
+contract. The safety property — *current base cook, only the 2 scalars moved*, checked against the
+pristine live-game extract — passed on all 4 and is what actually rules out shipping a frozen cook.
+The differ-clause is now a **drift report**, not a gate. The identical BPC clause below it had the
+same flaw (a patch that does not touch the BPC would make a correct rebuild "fail") and got the same
+treatment.
+
+### Notes
+- `dist/` had to be restored from git between the two runs: step `[5]` writes the new pak into
+  `dist/` before `[5c]` runs, so a failed build leaves `dist/` overwritten and the *next* run's
+  step `[1]` would snapshot **that** as the regression baseline. Confirmed the restored copy against
+  the committed blob (`md5 fe37303098c2b3c61572e9756b7446e9`) before re-running.
+- No game launch. Steam still has `AutoUpdateBehavior 0`; the build already moved once mid-project.
+
+### Next (user)
+- [ ] In-game on 24536482: **shoot a Grabber repeatedly** (the reported repro — now an open
+      question, not a confirmed fix), bosses staggerable and killable, `…\Saved\Crashes\` empty.
+- [ ] Get the crash log from Frnix if the report stands. It is still the missing evidence, and the
+      AIDEF theory is now excluded rather than merely unconfirmed.
+- [ ] Publish v1.3 to Nexus #124 once the launch is green. The CHANGELOG entry is rewritten around
+      the BPC regression, which is the claim that survives.

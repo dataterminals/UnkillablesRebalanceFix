@@ -3,17 +3,31 @@
 Target build: **`24536482`**. Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
 This mod ships whole copies of game files, so it must be rebuilt after every patch.
 
-> **Update 2026-08-05 (v1.3) — players report crashing when they SHOOT the Grabber, and the last
-> frozen assets are the prime suspect.** The 4 Stalker AIDEF DataAssets were the only overrides
-> still shipping the mod's 0.9.2.2 cook, kept there on the reasoning that *"DataAssets carry no
-> Kismet bytecode, so there is no serialization-crash surface."* That premise is wrong: UE5 cooked
-> assets use **unversioned property serialization**, so a property is identified by its **index** in
-> the class schema, not its name — a class that gained/removed/reordered a `UPROPERTY` since 0.9.2.2
-> makes the frozen bitstream decode into the *wrong fields*, pointers included. That crashes when a
-> field is **used** (when you shoot it) rather than at load, which is the reported symptom.
-> **Fix: all 11 overrides now build from current base. There is no Option A left.** Note the game
-> also moved 24501089 → 24536482, so the pak was stale regardless. *The root cause is inferred, not
-> yet confirmed by a crash log — see `WORKLOG.md`.*
+> **Update 2026-08-23 (v1.3, built & verified on `24536482`).** Two results, one of them a
+> retraction.
+>
+> **What the rebuild fixes, measured:** the previously shipped pak drops **9 property shapes** from
+> `BPC_IncomingDamageMod` when decoded against the live build (285 base → 276 shipped). The patch
+> added `Check if Weapon Silenced` and `Clean Up Damaged Foes` and swapped `MakeAINoise` for
+> `MakeAINoiseForFactions`; the stale copy reverts all of it. `BPC_IncomingDamageMod` is the **only**
+> one of the 11 packages whose payload moved between 24501089 and 24536482 — the other ten rebuild
+> byte-identical.
+>
+> **The 2026-08-05 Grabber diagnosis is WITHDRAWN.** All 4 Stalker AIDEFs rebuild **byte-identical**
+> to the frozen 0.9.2.2 cook (206/205/202/202 B; the only bytes differing from current base are the
+> 4 belonging to the 2 rebalanced scalars). The class never drifted, so the unversioned-property
+> mechanism below could not have applied to it. Option B is kept for these — it removes the
+> frozen-cook dependency permanently — but it is a **no-op in shipped bytes, not a fix**, and the
+> reported crash is unexplained. See `docs/diagnosis.md` and `WORKLOG.md` Session 6.
+
+> **Update 2026-08-05 (v1.3) — SUPERSEDED by the entry above; kept for history.** The 4 Stalker
+> AIDEF DataAssets were the only overrides still shipping the mod's 0.9.2.2 cook, kept there on the
+> reasoning that *"DataAssets carry no Kismet bytecode, so there is no serialization-crash surface."*
+> That premise is wrong in general — UE5 cooked assets use **unversioned property serialization**, so
+> a property is identified by its **index** in the class schema, not its name, and a class that
+> gained/removed/reordered a `UPROPERTY` makes a frozen bitstream decode into the *wrong fields*.
+> The reasoning is sound; it simply did not apply here, because these classes did not change. **All
+> 11 overrides now build from current base. There is no Option A left.**
 
 > **Update 2026-07-10 (v1.1):** the pending in-game test fired and it **crashed** — a community
 > member hit `ObjectSerializationError` on `BP_AI_Euruska_MeatMan` (a boss we'd filed "low-risk").
@@ -32,7 +46,7 @@ The rebuild reproduces the **identical rebalance** on the current build, per-ass
 | Assets | Action | Why |
 |---|---|---|
 | **All 6 boss BPs** — `MeatMan`, `OrgaMech`, `ShieldOfficer`, `Toothy`, `MotherCourage`, `Opal` — + `BPC_IncomingDamageMod` | **patched current base** — extract the **current** base class, change only the rebalanced scalars (`tools/patch_drifted.py`), repack | ships the current structure with only the rebalanced numbers — no stale bytecode. Each boss BP ends up **byte-identical to current base except its 2 health floats**. v1.0 shipped 4 of these as mod-rebases (the "low-risk" call) and one — MeatMan — crashed in-game; export-count parity did not guarantee the stale cook loads. |
-| 4× `AIDEF_Euruska_Stalker*` (`_HK` / `_Pregnant_Quest` / `_Underground`) | **patched current base** — same treatment, via `tools/patch_stalker_aidef.py` (`DamageToStagger` and `SyncKillMaxPlayerHealth`) | *Changed in v1.3.* These were rebased until 2026-08-05 because "DataAssets carry no Kismet bytecode". Unversioned property serialization makes that irrelevant — a frozen cook mis-decodes against a changed class schema and crashes when a field is **used**, which is why shooting the Grabber is the reported repro. Now the same cook the game itself loads, with 2 scalars moved. |
+| 4× `AIDEF_Euruska_Stalker*` (`_HK` / `_Pregnant_Quest` / `_Underground`) | **patched current base** — same treatment, via `tools/patch_stalker_aidef.py` (`DamageToStagger` and `SyncKillMaxPlayerHealth`) | *Changed in v1.3.* These were rebased until 2026-08-05 because "DataAssets carry no Kismet bytecode". Moved to Option B on the theory that a drifted schema was mis-decoding and causing the shooting-the-Grabber crash — **measured false on 2026-08-23**: they rebuild byte-identical to the frozen cook, so this class never drifted. Kept on Option B anyway, because nothing frozen should remain in the pipeline; the shipped bytes are unchanged. |
 
 The rebalanced values (identical to the original mod) are in [`rebalance-values.json`](rebalance-values.json):
 
@@ -85,9 +99,13 @@ loader + pak (remove, don't just toggle). No TFWWorkbench dependency — this is
 2. Reaches main menu and loads a mission without crashing.
 3. Each boss (MeatMan, OrgaMech, ShieldOfficer, Toothy, Mother Courage, Opal — non-HK) is staggerable and killable by
    weapons; no `ObjectSerializationError` for any `BP_AI_*` / `BP_Mech_Toothy` / `BPC_IncomingDamageMod`.
-4. **Shoot a Grabber/Stalker repeatedly until it staggers — no crash.** This is the v1.3 repro and the
-   one that matters; item 5 only covers *being grabbed*, which is a different code path. Try the
-   variants you can reach (regular, Underground).
+4. **Shoot a Grabber/Stalker repeatedly until it staggers — no crash.** This is the reported v1.3
+   repro, and the item that matters most: item 5 only covers *being grabbed*, which is a different
+   code path, and that gap is why the report went unnoticed. Try the variants you can reach
+   (regular, Underground). Note the suspected cause was **ruled out by measurement** on 2026-08-23
+   (the Stalker AIDEFs never drifted), so this is now an open question rather than a fix being
+   confirmed — if it still crashes, capture `…\Saved\Crashes\` and
+   `…\Saved\Logs\ForeverWinter.log`; that log is the thing the diagnosis is missing.
 5. Grabber/Stalker: ~600-dmg swipe + disengage instead of an insta-kill grab (while you're above 1000 HP).
 6. `…\Saved\Crashes\` stays empty — and if it does not, keep the crash log, it is the thing this
    diagnosis is still missing.

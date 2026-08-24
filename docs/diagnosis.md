@@ -5,7 +5,41 @@ Method: decoded the mod's pak vs. the live game with the [`forever-winter-datami
 toolchain (base-only mount = vanilla; `global + mod` mount = the mod's own cooked versions), diffed the two, and
 corroborated against the mod's public description.
 
-> **Update 2026-08-05 (v1.3) — the second "structurally safe" call was wrong too.** Players report
+> **Update 2026-08-23 (v1.3, built) — the 2026-08-05 diagnosis below is WITHDRAWN. It was wrong.**
+> The pak was finally rebuilt on a machine with the game (build `24536482`) and the claim was
+> measured instead of reasoned about. **All 4 Stalker AIDEFs build byte-for-byte identical to the
+> frozen 0.9.2.2 cook they were already shipping** — same length, same string set, and the only
+> bytes that differ from current base are the 4 belonging to the 2 rebalanced scalars
+> (`20000→1000` moves 3 bytes, `2000→1000` moves 1):
+>
+> | AIDEF | uexp len | base vs rebuilt | rebuilt vs previously shipped |
+> |---|---|---|---|
+> | `AIDEF_Euruska_Stalker` | 206 B | 4 bytes @ 102,103,104,136 | **0 — identical** |
+> | `AIDEF_Euruska_Stalker_HK` | 205 B | 4 bytes @ 100,101,102,134 | **0 — identical** |
+> | `AIDEF_Euruska_Stalker_Pregnant_Quest` | 202 B | 4 bytes @ 98,99,100,132 | **0 — identical** |
+> | `AIDEF_Euruska_Stalker_Underground` | 202 B | 4 bytes @ 98,99,100,132 | **0 — identical** |
+>
+> The AIDEF class **never drifted** between 0.9.2.2 and 24536482, so the frozen cook was decoding
+> correctly all along and the unversioned-property mechanism described below **cannot** have been
+> mis-reading these files. `stalker_aidef.structural_drift` is now `false` **as measured**, not as
+> assumed. The Option A → Option B migration is kept — it removes the frozen-cook dependency and
+> the `upstream/` requirement permanently — but it is a **no-op in shipped bytes**, not a fix.
+>
+> **The reported "crash when shooting the Grabber" therefore has no established cause.** What *was*
+> found, and is real and measured, is that the previously shipped pak drops **9 property shapes**
+> from `BPC_IncomingDamageMod` on 24536482 — the patch added `Check if Weapon Silenced`,
+> `Clean Up Damaged Foes` and faction-aware AI noise, and the stale copy reverts them. That is a
+> genuine regression and a plausible contributor, but it is not the same claim. Get the crash log.
+>
+> **The lesson, a third time, and it is not the one written below.** 2026-07-10 was "export counts
+> match, so the cook is safe." 2026-08-05 was "no bytecode, so the cook is safe." Both were
+> reasoning in place of evidence, and both were *wrong in the unsafe direction*. 2026-08-05's
+> correction was reasoning too — a mechanism that explained the symptom, adopted without measuring
+> whether its precondition (drift) held. It did not. **A mechanism that explains the symptom is not
+> evidence that it occurred.**
+
+> **Update 2026-08-05 (v1.3) — SUPERSEDED, see the 2026-08-23 update above. Kept for history.**
+> *(original text: "the second 'structurally safe' call was wrong too.")* Players report
 > the game **crashing when they shoot the Grabber**. The 4 Stalker AIDEF DataAssets were the last
 > overrides still shipping the mod's frozen 0.9.2.2 cook, kept there because *"DataAssets carry no
 > Kismet bytecode, so there is no serialization-crash surface."* Bytecode is not the relevant

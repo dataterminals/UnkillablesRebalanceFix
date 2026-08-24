@@ -4,14 +4,22 @@ A compatibility repair of the community mod **Unkillables Rebalance** for
 *The Forever Winter* (Nexus mod [#68](https://www.nexusmods.com/theforeverwinter/mods/68)),
 so it works again on the current game build.
 
-> **Status: REBUILD REQUIRED — the pak in `dist/` is out of date.** It was built 2026-08-01 against
-> build `24501089`; the live build is now **`24536482`**. Separately, players report the game
-> **crashing when they shoot the Grabber**, and on 2026-08-05 the build pipeline was changed to fix
-> the suspected cause — the 4 Stalker/Grabber DataAssets were the last overrides still frozen at the
-> mod's 0.9.2.2 cook and now build from current base like everything else. **That change is in the
-> scripts only: `tools/build_fix.sh` has not been re-run, so `dist/` does not contain it yet.**
-> Root cause is cooked-asset version drift (same failure class as `HeavyRifleRebalanceFix`) and, for
-> the Grabber, unversioned-property drift — see [`docs/diagnosis.md`](docs/diagnosis.md),
+> **Status:** **rebuilt & statically verified on build `24536482`** (2026-08-23) — awaiting the
+> in-game test. The mod ships for game **0.9.2.2**; root cause is cooked-asset version drift (same
+> failure class as `HeavyRifleRebalanceFix`). The rebuilt pak is in
+> [`dist/UnkillablesRebalanceFix/`](dist/UnkillablesRebalanceFix).
+>
+> **What this rebuild fixes:** on `24536482` the previously shipped pak drops **9 property shapes**
+> from `BPC_IncomingDamageMod` — the game patch added a weapon-suppressor check
+> (`Check if Weapon Silenced`), a `Clean Up Damaged Foes` pass and faction-aware AI noise
+> (`MakeAINoise` → `MakeAINoiseForFactions`), and the stale copy reverts all of it. Measured, not
+> inferred: see [`WORKLOG.md`](WORKLOG.md) Session 6.
+>
+> **The 2026-08-05 Grabber-crash diagnosis is withdrawn.** Rebuilding the 4 Stalker/Grabber
+> DataAssets from current base produced **byte-identical** payloads to the frozen 0.9.2.2 cook, so
+> that class never drifted and cannot have been mis-decoding. The Option A → Option B move is kept
+> (it removes the frozen-cook dependency permanently) but it is a **no-op in shipped bytes**. The
+> reported crash is unexplained and needs a crash log. See [`docs/diagnosis.md`](docs/diagnosis.md),
 > [`docs/fix-notes.md`](docs/fix-notes.md) and [`WORKLOG.md`](WORKLOG.md).
 
 ## What the mod does

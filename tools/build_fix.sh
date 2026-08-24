@@ -14,14 +14,19 @@
 #     BP_AI_Euruska_MeatMan). All 6 boss BPs + BPC moved to Option B.
 #   2026-08-05: the 4 Stalker AIDEFs were the last Option-A holdouts, justified by "DataAssets
 #     carry no Kismet bytecode, so there is no serialization-crash surface." Players then
-#     reported the game CRASHING WHEN SHOOTING THE GRABBER -- and the Stalker AIDEFs are both
-#     the only Grabber-specific assets in this pak and the only ones still frozen at 0.9.2.2.
-#     The premise was wrong: UE5 cooked assets use UNVERSIONED property serialization, so a
-#     property is identified by its INDEX in the class schema, not its name. A class that
-#     gained / removed / reordered a UPROPERTY since 0.9.2.2 makes the frozen bitstream decode
-#     into the WRONG fields -- pointers included -- which crashes when the field is USED (i.e.
-#     when you shoot it), not at load. See tools/patch_stalker_aidef.py for the full writeup.
-#   The rule both rounds taught: do not ship a frozen cook because it LOOKS safe. There is no
+#     reported the game CRASHING WHEN SHOOTING THE GRABBER, and since these were both the only
+#     Grabber-specific assets here and the only ones still frozen at 0.9.2.2, they were moved to
+#     Option B. The "no bytecode" premise IS unsound in general -- UE5 uses UNVERSIONED property
+#     serialization, so a property is identified by its INDEX in the class schema and a drifted
+#     class makes a frozen cook decode into the WRONG fields, crashing when one is USED rather
+#     than at load.
+#   2026-08-23: the first rebuild on a machine with the game MEASURED that and the precondition
+#     is FALSE -- all 4 AIDEFs build byte-identical to the frozen cook, so this class never
+#     drifted and the move fixed nothing. It is kept anyway (nothing frozen should remain, and
+#     it drops the upstream/ requirement), but as hygiene, not as a fix. The Grabber crash has
+#     no established cause. See tools/patch_stalker_aidef.py and WORKLOG.md Session 6.
+#   The rule all three rounds taught: do not ship a frozen cook because it LOOKS safe -- and do
+#   not adopt a mechanism because it explains the symptom. Both need measurement. There is no
 #   Option A left in this build, and adding one back needs evidence, not reasoning.
 #
 # WHY YOU RE-RUN THIS: everything here is extracted from the live game, so the pak is only ever
@@ -276,11 +281,18 @@ echo "[5c/6] CONTENT GATE — every package is current base + only the rebalance
 # `retoc verify` checks the CONTAINER and nothing about the contents -- that is the exact check
 # that passed a pak whose every weapon pointed at a deleted DataAsset. These assertions are
 # about content:
-#   A. each of the 4 Stalker AIDEFs must now be the CURRENT BASE cook differing in exactly the
-#      8 bytes of the 2 patched float32s -- and must DIFFER from the previously shipped pak.
-#      Note this gate is INVERTED from the one it replaces: until 2026-08-05 these were
-#      Option-A rebases and the gate demanded they be byte-IDENTICAL to the shipped copy.
-#      Under Option B an unchanged payload means the strategy change did not take effect.
+#   A. each of the 4 Stalker AIDEFs must be the CURRENT BASE cook with only the 2 patched
+#      float32s moved. That is the entire safety property, and it is asserted against $LEGB --
+#      the pristine live-game extract -- so a build that somehow shipped a frozen cook instead
+#      would show stray bytes and fail right here.
+#      This gate ALSO used to demand the payload DIFFER from the previously shipped pak, on the
+#      reasoning that under Option B an unchanged payload meant the Option-A -> Option-B move
+#      had not taken effect. That was an assumption about drift, not a safety property, and on
+#      2026-08-23 it was measured FALSE: on 24536482 all 4 AIDEFs build byte-identical to the
+#      frozen 0.9.2.2 copy, because this class never drifted. A correct build IS identical
+#      there, so the clause rejected every good build. It is now a drift REPORT, not a gate.
+#      (Same defect as the "exactly 8 bytes differ" formulation it already replaced once: both
+#      encoded a guess about what the bytes would look like instead of asserting the contract.)
 #   B. the BPC must carry the function/property names the live base has. This is the 24501089
 #      regression stated in bytes rather than in decoded property shapes, so it holds even when
 #      the decoder or the usmap is unavailable.
@@ -360,18 +372,21 @@ for n in ("AIDEF_Euruska_Stalker", "AIDEF_Euruska_Stalker_HK",
         print("          base extract: %s" % base)
         print("          built pak   : %s" % new)
         bad = 1
+    # Drift REPORT -- deliberately not a gate. See the note on A above: whether this payload
+    # matches the previous ship is a fact about the GAME (did the class layout move?), not
+    # about whether this build is correct. Correctness is the assertion above.
     if not have_prev:
-        print("          SKIP prev-pak comparison (no dist/ pak at build start)")
+        print("          SKIP drift report (no dist/ pak at build start)")
         continue
     old = find(isoprev, n + ".uexp")
     if old is None:
-        print("          SKIP prev-pak comparison (not in the previous pak)")
+        print("          NOTE not present in the previous pak -- nothing to compare")
     elif open(old, 'rb').read() == nb:
-        print("          FAIL payload is UNCHANGED from the previously shipped pak --")
-        print("               the Option-A -> Option-B move did not take effect")
-        bad = 1
+        print("          NOTE identical to the previously shipped copy -- this class did NOT")
+        print("               drift: the frozen cook and the current base cook agree byte for byte")
     else:
-        print("          OK   differs from the previously shipped (frozen 0.9.2.2) copy")
+        print("          NOTE differs from the previously shipped copy -- this class DID drift,")
+        print("               so rebuilding changed what ships")
 
 print("  B. BPC_IncomingDamageMod carries the live build's names")
 newb = find(isonew, "BPC_IncomingDamageMod.uasset")
@@ -388,11 +403,16 @@ for s in ("Attack Add", "Modify Attack Add", "Big boi Sniper Rifles", "Noisy Pla
     else:
         print("     FAIL %-38s x%d, live base has x%d" % (s, got, want)); bad = 1
 
+# Report, not a gate, for the same reason as A: if a game patch simply did not touch the BPC,
+# a byte-identical rebuild is the CORRECT result. What must hold is B above -- that the shipped
+# BPC carries the live base's names -- and that is asserted, not inferred from a difference.
 if have_prev:
     prevb = find(isoprev, "BPC_IncomingDamageMod.uasset")
-    if prevb and open(prevb, 'rb').read() == nb:
-        print("     FAIL BPC is byte-identical to the PREVIOUS pak -- the rebuild changed nothing")
-        bad = 1
+    if prevb:
+        same = open(prevb, 'rb').read() == nb
+        print("     NOTE BPC %s the previous pak" %
+              ("is byte-identical to (the live base's copy did not move since)" if same
+               else "differs from (the live base's copy moved since)"))
 sys.exit(1 if bad else 0)
 PY
 

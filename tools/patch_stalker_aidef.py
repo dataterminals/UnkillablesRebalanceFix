@@ -2,25 +2,32 @@
 """Patch the CURRENT base Stalker (Grabber) AIDEF DataAssets with ONLY the mod's two
 rebalanced scalars changed (Option B).
 
-WHY THIS EXISTS — the "DataAssets are safe" premise was wrong.
+WHY THIS EXISTS — and what it did NOT turn out to fix. Read this before citing it.
 Until 2026-08-05 these 4 AIDEFs were the last assets still built via Option A: the mod's own
 cook, frozen at game 0.9.2.2. The justification, written in build_fix.sh and patch_drifted.py,
 was "DataAssets carry no Kismet bytecode, so there is no serialization-crash surface."
 
-That reasoning does not hold. UE5 cooked assets use UNVERSIONED property serialization: a
-property is identified by its INDEX in the class's property schema, not by its name. If the
-underlying AIDEF class gained, removed, or reordered a UPROPERTY since 0.9.2.2, the frozen
-cook's bitstream misaligns against the current schema and values decode into the WRONG fields
--- including object / soft-object pointers. Absence of bytecode does not protect against that;
-it is a property-layout problem, not a bytecode problem.
+That justification is not sound IN GENERAL. UE5 cooked assets use UNVERSIONED property
+serialization: a property is identified by its INDEX in the class's property schema, not by its
+name. If a class gains, removes, or reorders a UPROPERTY, a frozen cook's bitstream misaligns
+against the current schema and values decode into the WRONG fields -- object and soft-object
+pointers included -- which crashes when a field is DEREFERENCED rather than at load. Absence of
+bytecode does not protect against that; it is a property-layout problem, not a bytecode problem.
 
-The failure that produces is a crash when a mis-decoded field is DEREFERENCED, not at load --
-which is exactly the reported symptom: the game crashes when you SHOOT the Grabber (damage ->
-DamageToStagger / the stagger + sync-kill path reads these fields), rather than when it spawns.
+BUT: on 2026-08-05 that mechanism was adopted as the explanation for players crashing when they
+SHOT the Grabber, and on 2026-08-23 the first real rebuild MEASURED its precondition and found
+it FALSE. All 4 AIDEFs build byte-identical to the frozen 0.9.2.2 cook (uexp 206/205/202/202 B;
+the only bytes differing from current base are the 4 belonging to the 2 scalars below). This
+class never drifted, so it was never mis-decoding, and this script did not fix the reported
+crash -- it produces exactly the bytes that were already shipping. The crash has no established
+cause. See docs/diagnosis.md and WORKLOG.md Session 6.
 
-This is the same lesson MeatMan taught on 2026-07-10, where "structurally identical, low-risk"
-was also wrong and the fix was likewise to stop shipping the frozen cook. Export-count parity
-did not make that cook safe. "No bytecode" does not make these safe.
+So keep this script for the reason that survives -- nothing frozen should remain in the
+pipeline, and Option B drops the upstream/ requirement for good -- not as a fix. And note the
+shape of the error, which is now three deep: 2026-07-10 "export counts match, so the cook is
+safe"; 2026-08-05 "no bytecode, so the cook is safe"; then 2026-08-05's own correction, a
+mechanism that explained the symptom and was adopted without measuring whether it applied.
+A mechanism that explains the symptom is not evidence that it occurred.
 
 - 4 variants: AIDEF_Euruska_Stalker + _HK / _Pregnant_Quest / _Underground.
 - DamageToStagger        20000.0 -> 1000.0  (float32)  = 20x easier to stun

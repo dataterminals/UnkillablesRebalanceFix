@@ -1,5 +1,28 @@
 # Handoff — Grabber shooting crash (2026-08-05)
 
+> **CLOSED 2026-08-23. This handoff was picked up and run; do not action it again.** The build
+> was done on 24536482 and both gates are green, but its central hypothesis did **not** survive
+> contact with the measurement:
+>
+> - **The Stalker-AIDEF diagnosis is withdrawn.** All 4 rebuild byte-identical to the frozen
+>   0.9.2.2 cook, so that class never drifted and cannot have been mis-decoding. The Option A →
+>   Option B move is kept as hygiene but is a **no-op in shipped bytes**. The reported crash has
+>   no established cause and still needs a crash log.
+> - **`[2b]` did not settle it, contrary to the expectation set below.** It cannot tell real
+>   drift from the rebalance this mod itself applies — it reported `delta +0` and
+>   `payloads DIFFER` on every AIDEF, which reads as drift but was only the 2 patched scalars.
+>   The three-way base/rebuilt/previously-shipped byte comparison is what answered it.
+> - **`[5c]` gate A had to be fixed again.** Its "must DIFFER from the previously shipped pak"
+>   clause failed all 4 on a correct build. It asserted a premise, not a contract; it is now a
+>   drift report.
+> - **What the rebuild genuinely fixes:** the shipped pak drops **9 property shapes** from
+>   `BPC_IncomingDamageMod` on 24536482 (`Check if Weapon Silenced`, `Clean Up Damaged Foes`,
+>   plus a new array-inner struct). That is the claim v1.3 now ships on.
+>
+> Full account: [`WORKLOG.md`](../WORKLOG.md) Session 6. The text below is the original handoff,
+> kept for history — its "Run this" and "What's still missing" sections are superseded.
+
+
 For a **local session on Windows** picking this up. Everything below is on branch
 `claude/grabber-shooting-crash-weq6js`. The remote session that wrote it had no game install and
 no `retoc`, so **nothing here has been built, run, or launched.**
