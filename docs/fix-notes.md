@@ -1,7 +1,29 @@
 # Fix notes — what changed and how to test
 
-Target build: **`24536482`**. Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
+Target build: **`25071553`**. Original mod: **Unkillables Rebalance 0.9.2.2** (Nexus #68).
 This mod ships whole copies of game files, so it must be rebuilt after every patch.
+
+> **Update 2026-09-11 (v1.4, built & verified on `25071553`) — the mechanism above is no longer
+> theoretical; it was measured, with a control.** Build 25071553 (2026-09-10) moved the **AI character
+> class schema**. The v1.3 pak is not rejected on it, it is **mis-read**: decoded inside a live
+> 25071553 mount, every one of the 6 boss CDOs diverges at the same property (`FarDistance` /
+> `CloseDistanceRadiusScalar`), values land under neighbouring names — MeatMan's `FarDistance` reads
+> 150 where base has 750, and the 750 reappears as `CloseDistanceRadiusScalar` — and the stream then
+> desynchronises, losing 19 properties including `RootComponent`, `Mesh`, `CapsuleComponent`,
+> `CharacterMovement`, `AIControllerClass` and `HealthComponentPrivate` (MeatMan 35 → 19 decoded).
+>
+> The control: the **same v1.3 bytes** read under the archived `24536482` usmap decode all 35,
+> coherently. The pak is not corrupt — the schema moved underneath it. This is the first direct
+> observation of index-shift in this repo; 2026-08-05 asserted it without evidence and 2026-08-23
+> had to retract that, for a class that turned out not to have moved.
+>
+> **Toothy is the counter-example to count-based triage**, again: its CDO property *count* is
+> unchanged (17 → 17) while 8 of those 17 values sit under the wrong name. Neither export counts nor
+> property counts can see this; only a value-level decode against the live schema can.
+>
+> `BPC_IncomingDamageMod` dropped **nothing** this patch (285 shapes in base, v1.3 and v1.4 alike),
+> and the 4 Stalker AIDEFs are byte-identical to v1.3. The damage is confined to the 6 boss
+> Blueprints — and there it is total. See `WORKLOG.md` Session 7.
 
 > **Update 2026-08-23 (v1.3, built & verified on `24536482`).** Two results, one of them a
 > retraction.
@@ -93,7 +115,7 @@ loader + pak (remove, don't just toggle). No TFWWorkbench dependency — this is
 > mod first — don't run both at once. Keep your mod loader up to date, and after any game update, fully
 > remove and re-add the loader and this mod rather than just toggling it off and on.
 
-## Test checklist (build 24536482)
+## Test checklist (build 25071553)
 
 1. **Baseline (optional):** original mod → watch for a crash / no-effect on a rebalanced boss. Fixed mod → neither.
 2. Reaches main menu and loads a mission without crashing.

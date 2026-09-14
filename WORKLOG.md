@@ -443,3 +443,126 @@ treatment.
       AIDEF theory is now excluded rather than merely unconfirmed.
 - [ ] Publish v1.3 to Nexus #124 once the launch is green. The CHANGELOG entry is rewritten around
       the BPC regression, which is the claim that survives.
+
+---
+
+## 2026-09-11 — Session 7: built on 25071553, and the index-shift mechanism finally measured (SylDesk)
+
+**Goal:** the game patched on 2026-09-10 (Steam `buildid` **25071553**, paks dated 14:22) while `dist/`
+was stamped to `24536482`. Rebuild, and measure what the stale pak does on the new build.
+
+The sibling datamine repo had already re-dumped the usmap at 14:52 the same day, and its
+`provenance.json` flags this patch as one that **moved type layouts** — the old map went stale
+*silently*, truncating `FWWeaponDefinition` from 57 properties to 30. That is the warning shot for
+this repo: whatever moved a weapon class can have moved an AI class.
+
+### Result: clean build, clean verify
+- `build_fix.sh`: all gates green. 11 packages, `[6/6]` **11/11** package ids match
+  `expected_package_ids.txt`. Scalars re-applied and re-verified in order — 19 BPC doubles, 6 boss
+  HP pairs, 4 AIDEF pairs. Health unchanged: 330000 / 286870 / 328000 / 308700 / 372000 / 213000;
+  Stalkers 1000/1000.
+- `verify_build.sh`: **11 shipped packages, 16 dumps, 0 uncovered · 3165 references, 0 dangling ·
+  0 properties dropped** against live 25071553.
+- Payload diff v1.3 → v1.4: the 4 Stalker AIDEFs are **byte-identical**; the 6 boss BPs and the BPC
+  each move 3–5 bytes with **no name-table change on any of them** (`+0 / -0` strings). The packages
+  barely moved. What moved is the schema they serialise against.
+
+### What the 25071553 patch actually does to the stale pak — measured, with a control
+Decoding the **v1.3 pak** inside a full live 25071553 mount (staged `zzz_URF_P`; provenance confirmed
+by value — the dump carries the mod's 330000 / 286870 / 213000 / Stalker 1000.0 and the live base
+does not):
+
+| `Default__BP_AI_Euruska_MeatMan_C` | CDO properties |
+|---|---|
+| live base, live usmap | **35** |
+| **v1.4** pak (this build), live usmap | **35** |
+| **v1.3** pak, live usmap | **19** |
+| **v1.3** pak, archived `24536482` usmap | **35 — coherent** |
+
+That last row is the control, and it is what makes this a measurement rather than a story: the same
+bytes decode perfectly under the retired schema and desynchronise under the live one. The pak is not
+corrupt. The class layout moved underneath it.
+
+All 6 boss BPs, same shape — divergence begins at the same property on every one of them:
+
+| boss CDO | base | v1.4 | v1.3 on live | lost | decoded under a wrong name | diverges at |
+|---|---|---|---|---|---|---|
+| MeatMan | 35 | 35 | **19** | 19 | 3 | `FarDistance` |
+| OrgaMech | 31 | 31 | **15** | 19 | 3 | `FarDistance` |
+| ShieldOfficer | 29 | 29 | **13** | 19 | 3 | `FarDistance` |
+| Toothy | 17 | 17 | 17 | 8 | 8 | `CloseDistanceRadiusScalar` |
+| MotherCourage | 32 | 32 | **20** | 17 | 5 | `CloseDistanceRadiusScalar` |
+| Opal | 41 | 41 | **25** | 19 | 3 | `FarDistance` |
+
+Toothy is the one to read carefully: its property *count* is unchanged at 17, and 8 of those 17 are
+values sitting under the wrong name. A count-based gate would have passed it — the same lesson as
+2026-07-10, when matching export counts got MeatMan classed "low-risk" and it crashed.
+
+Whole-package property shapes tell the same story (base → v1.3-on-live): MeatMan 290 → 248, OrgaMech
+285 → 243, ShieldOfficer 292 → 250, Toothy 268 → 250, MotherCourage 317 → 281, Opal 296 → 256.
+
+The failure is the textbook one for unversioned property serialization, and it is worth recording in
+detail because the repo has twice reasoned about this mechanism without seeing it. Reading MeatMan's
+CDO with the live schema, the stream tracks correctly for 14 properties, then slides:
+
+```
+  live base (25071553)                     the SAME v1.3 bytes, read under it
+  ------------------------------------     ------------------------------------
+  [13] bCanMoveBackwards        false      [13] bCanMoveBackwards        false   <- last agreement
+  [14] FarDistance              750.0      [14] CloseDistanceRadiusScalar 750.0
+  [15] MinSpeed                 150.0      [15] FarDistance              150.0
+  [16] MaxSpeed                 150.0      [16] MinSpeed                 150.0
+  [17] MaxExtraTurnVel           90.0      [17] MinTurnAngle              90.0
+  [18] MoveTargetInterpolateTime  0.5      [18] EngagementDistance         0.5
+```
+
+The value sequence is intact — `750, 150, 150, 90, 0.5` — and every one of them lands **one name
+late**. That is an index shift and nothing else; a corrupt payload does not preserve the values in
+order while relabelling them.
+
+and then it runs off the end: **19** properties never decode at all, while 3 wrong ones appear in
+their place — a net 35 → 19. The 19 lost are
+`MaxSpeed`, `MaxExtraTurnVel`, `MoveTargetInterpolateTime`, `ThrowingSystem`, `AnimationDefinition`,
+`SprintingSpeedModifier`, `RootBoneName`, `MeleeAttackDamage`, `bEnableTickThrottle`,
+`PawnDefinition`, `PawnComponentPrivate`, `AbilitySystemComponentPrivate`, `HealthComponentPrivate`,
+`Mesh`, `CharacterMovement`, `CapsuleComponent`, `AIControllerClass`, `RootComponent`, `Tags`.
+
+A boss CDO with no `RootComponent`, no `Mesh`, no `CapsuleComponent` and no `AIControllerClass` is
+the same shape of breakage as the v1.1 MeatMan startup crash (`ObjectSerializationError` / bad export
+index). **Caveat, stated plainly:** this is the decoder's view under the live usmap, not an observed
+in-game crash. It is the strongest static evidence this repo has ever had — including a control that
+rules out the pak itself — but the in-game test is still the arbiter, and it is still outstanding.
+
+### What did *not* move
+- **The 4 Stalker AIDEFs**: 50/51/50/50 shapes, base and both paks; byte-identical v1.3 → v1.4. That
+  class did not move in this patch either. `structural_drift: false` stands.
+- **`BPC_IncomingDamageMod`**: 285 shapes in base, in v1.4 **and in v1.3** — **0 dropped**. Unlike
+  24536482, this patch took nothing out of the BPC. Its decoded values differ from base by exactly
+  the mod's own 19 `Codex AI to Disable Health Threashold` doubles and nothing else, on both paks.
+  The 4 raw bytes that moved in its `.uexp` are outside the decoded property set (bytecode//index
+  region), and its `.uasset` shrank 6 B with an identical string set — consistent with script-object
+  index shifts, not a content change.
+
+So v1.3's damage is confined to the 6 boss Blueprints — but there it is total, not cosmetic.
+
+### Notes
+- Method reused from Session 6 (stage the old pak as `zzz_URF_P` in a hardlinked full-game mount,
+  decode, compare against the base dump), plus the new usmap control leg. `verify_build.sh` hardcoded
+  `PAKDIR` to `dist/`, so the old-pak legs were run by hand against `work/prev-dist/` — for the third
+  build running. **Fixed:** `PAKDIR` is now an env override like every other path in that script, so
+  `PAKDIR=$REPO/work/prev-dist bash tools/verify_build.sh` takes the regression measurement directly.
+  The usmap control leg (decode the old pak under the archived usmap for its own build) is still by
+  hand; the archived maps live in the datamine repo's `mappings/archive/`.
+- `dist/` was pristine at HEAD before the run (`md5 0da77f6f5910e584aa582ca9539f5f1c` on the v1.3
+  `.ucas`), so the step-[1] regression baseline is trustworthy.
+- The dist zip now stores the readme with **CRLF**; the previous zips shipped it LF-only inside a
+  Windows-only archive.
+- No game launch this session.
+
+### Next (user)
+- [ ] In-game on 25071553: bosses spawn with model/collision/behaviour intact, staggerable and
+      killable, `…\Saved\Crashes\` empty. If v1.3 is still installed anywhere, expect it to break
+      first — that is the prediction this session makes.
+- [ ] Shoot a Grabber repeatedly (still an open report, still no established cause, still needs a
+      crash log).
+- [ ] Publish v1.4 to Nexus #124 once the launch is green.

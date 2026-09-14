@@ -34,6 +34,12 @@
 # Exits non-zero if anything dangles, is not covered, or is reverted.
 set -uo pipefail
 
+# One fwextract at a time, machine-wide. Two concurrent decoders froze SylDesk on 2026-09-11 --
+# tools/fwlock.sh carries the full account and the evidence. The lock is taken for the WHOLE run
+# below rather than around each decode() call, because `rm -rf "$WORK"` means two runs sharing a
+# WORK dir would destroy each other's dumps even if their decoders never overlapped.
+. "$(dirname "$0")/fwlock.sh"
+
 # ---------------------------------------------------------------------------
 # Per-machine path resolution.
 #   1. an environment override always wins (REPO / GAME_PAKS / DECODER / USMAP / WORK / PY)
@@ -124,7 +130,13 @@ if [ -n "$DW" ] && [ -n "$DG" ] && [ "$DW" != "$DG" ]; then
   exit 2
 fi
 
-PAKDIR="$REPO/dist/UnkillablesRebalanceFix"
+# PAKDIR is what gets verified. It defaults to the built pak in dist/, but it is an env override
+# so the SAME check can be pointed at a previously shipped pak -- e.g.
+#   PAKDIR=$REPO/work/prev-dist bash tools/verify_build.sh
+# which is how the "what does the old pak do on the new build" measurement is taken (2026-08-23
+# on the BPC, 2026-09-11 on the 6 boss CDOs). That leg had to be run by hand both times because
+# this path was hardcoded.
+PAKDIR="${PAKDIR:-$REPO/dist/UnkillablesRebalanceFix}"
 PAKNAME="153_UnkillablesRebalance_P"
 VERIFY="$REPO/tools/verify_softrefs.py"
 
@@ -146,6 +158,9 @@ echo "usmap   : $USMAP"
 echo "work    : $WORK"
 echo "python  : $PY"
 echo
+
+# Held until this script exits, by any route -- clean pass, failed check, or Ctrl-C.
+fw_lock_acquire "verify_build.sh ${PAKDIR##*/}" || exit 2
 
 rm -rf "$WORK"; mkdir -p "$WORK"
 FAIL=0

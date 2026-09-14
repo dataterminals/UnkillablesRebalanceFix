@@ -1,4 +1,4 @@
-Unkillables Rebalance — Fix  (v1.3, for The Forever Winter build 24536482)
+Unkillables Rebalance — Fix  (v1.4, for The Forever Winter build 25071553)
 =========================================================================================
 
 Original mod: "Unkillables Rebalance" (Nexus #68). This is a community compatibility
@@ -20,23 +20,33 @@ WHY A REBUILD
   CURRENT game files with only the rebalance numbers changed, so they load exactly like the
   game's own files. Nothing left over from the old game version ships any more.
 
-WHAT v1.3 FIXES
-  Build 24536482 rewrote the shared damage component this mod replaces: it added a weapon-
-  suppressor check and a damaged-foe cleanup pass, and made the noise a damaged enemy raises
-  faction-aware. The previous release ships the older version of that component, so installing
-  it put the pre-patch behaviour back — measured against the live game, the old pak is missing
-  9 pieces of that component, including the whole "Check if Weapon Silenced" and "Clean Up
-  Damaged Foes" functions. This build matches the live component exactly, with nothing dropped.
+WHAT v1.4 FIXES — DO NOT RUN v1.3 ON BUILD 25071553
+  The 2026-09-10 patch (build 25071553) changed the internal layout of the boss character
+  class. The game stores these files as a bare list of values with no names attached, matched
+  up by position, so when the layout moves, an older file is read WRONG rather than rejected.
+
+  Measured against the live game, that is exactly what happens to the v1.3 boss files: on all
+  six bosses the values slide onto the wrong settings partway through (on Meatman, its
+  "far distance" reads 150 instead of 750, and 750 lands on the close-range setting), and then
+  the read runs off the rails and 19 of its 35 settings are simply gone — including which
+  skeletal mesh, collision capsule, movement component and AI controller the boss uses. A boss
+  missing those is the same shape of breakage as the v1.1 Meatman startup crash.
+
+  The check that proves it is the game patch and not a bad pak: the very same v1.3 files, read
+  with the PREVIOUS build's layout, come out perfect — every setting present and correct.
+
+  This build re-takes all 11 files from build 25071553 and re-applies the rebalance, so
+  everything lines up again. Verified against the live game: nothing dropped, every reference
+  resolves. The rebalance numbers themselves have not moved since v1.1.
+
+  The four Grabber/Stalker files are byte-for-byte identical to v1.3 — that class did not move
+  in this patch. The shared damage component did not lose anything either this time.
 
   ABOUT THE "CRASH WHEN SHOOTING THE GRABBER" REPORT
-  This was investigated and the suspected cause has been RULED OUT. The theory was that the
-  mod's 4 Grabber/Stalker data files had gone out of date like the Meatman did. Rebuilding
-  them from the current game produced byte-for-byte the SAME files — so they had never gone
-  stale and could not have been misread. If you still crash when you shoot a Grabber, it is
-  something else, and we need your crash log to find it:
+  Still open, and still needs a crash log. The suspected cause (the Grabber data files being
+  out of date) was ruled out by measurement back in v1.3 and nothing here changes that. If you
+  crash when you shoot a Grabber on this build, please send:
       ...\Saved\Crashes\   and   ...\Saved\Logs\ForeverWinter.log
-  The stale component described above is a plausible contributor on its own, so try this
-  build first.
 
 INSTALL
   Copy the three files
@@ -51,23 +61,16 @@ INSTALL
 
   Remove the ORIGINAL mod's 153_ files first — don't run both.
 
-TEST CHECKLIST (build 24536482)
+TEST CHECKLIST (build 25071553)
   1. Reaches main menu and loads a mission without crashing.
   2. Each rebalanced boss can be staggered and killed by weapons (not just the DetPack loop);
      no ObjectSerializationError for any BP_AI_* / BP_Mech_Toothy / BPC_IncomingDamageMod.
-  3. Shoot a Grabber/Stalker repeatedly until it staggers — no crash. (This is the reported
-     problem; its suspected cause was ruled out, so if it still happens, send the crash log.)
-  4. Grabber/Stalker swipes for ~600 and disengages instead of insta-grabbing (above 1000 HP).
-  5. ...\Saved\Crashes\ stays empty.
+  3. Bosses spawn with their normal model, collision and behaviour — no T-pose, no invisible
+     or inert boss. (That is what the v1.3-on-25071553 breakage would look like.)
+  4. Shoot a Grabber/Stalker repeatedly until it staggers — no crash. (Still an open report;
+     if it happens, send the crash log.)
+  5. Grabber/Stalker swipes for ~600 and disengages instead of insta-grabbing (above 1000 HP).
 
-NOTE ON GAME UPDATES
-  This mod ships whole copies of game files, so every game patch makes it out of date and it
-  has to be rebuilt. If a patch has landed and there's no newer release here, assume this one
-  is stale — that is the usual cause of a sudden crash or of the mod appearing to do nothing.
-
-KNOWN (pre-existing, from the original mod — not introduced here)
-  - Mother Courage / OrgaMech sometimes freeze to an idle pose on death before despawning
-    (the original author documents this). Not a crash.
-
-Original mod by its Nexus #68 author. This compatibility rebuild is redistributed on that basis
-and remains subject to the original author's permission.
+A NOTE ON UPDATES
+  This mod ships whole copies of game files, so it has to be rebuilt after EVERY game patch.
+  If a patch lands and there is no new release here yet, assume this one is out of date.

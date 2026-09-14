@@ -5,6 +5,48 @@ Method: decoded the mod's pak vs. the live game with the [`forever-winter-datami
 toolchain (base-only mount = vanilla; `global + mod` mount = the mod's own cooked versions), diffed the two, and
 corroborated against the mod's public description.
 
+> **Update 2026-09-11 (v1.4, built on `25071553`) — the mechanism described below was finally
+> OBSERVED, on the boss Blueprints, with a control that rules out the alternative.** Build 25071553
+> (2026-09-10) moved the **AI character class schema**. The v1.3 pak, decoded inside a live 25071553
+> mount (provenance confirmed by value — the dump carries the mod's own 330000 / 286870 / 213000 and
+> the base does not), mis-reads on **all 6 boss BPs**:
+>
+> | `Default__…_C` (boss CDO) | base | v1.4 | **v1.3 on live** | lost | under a wrong name | diverges at |
+> |---|---|---|---|---|---|---|
+> | MeatMan | 35 | 35 | **19** | 19 | 3 | `FarDistance` |
+> | OrgaMech | 31 | 31 | **15** | 19 | 3 | `FarDistance` |
+> | ShieldOfficer | 29 | 29 | **13** | 19 | 3 | `FarDistance` |
+> | Toothy | 17 | 17 | 17 | 8 | 8 | `CloseDistanceRadiusScalar` |
+> | MotherCourage | 32 | 32 | **20** | 17 | 5 | `CloseDistanceRadiusScalar` |
+> | Opal | 41 | 41 | **25** | 19 | 3 | `FarDistance` |
+>
+> On MeatMan: `FarDistance` decodes **150** where base has 750, the 750 turns up as
+> `CloseDistanceRadiusScalar`, `MaxExtraTurnVel`'s 90 as `MinTurnAngle`,
+> `MoveTargetInterpolateTime`'s 0.5 as `EngagementDistance` — values landing on *neighbouring*
+> properties, exactly as an index shift predicts — and the stream then desynchronises and 19
+> properties never decode at all, `RootComponent`, `Mesh`, `CapsuleComponent`, `CharacterMovement`,
+> `AIControllerClass` and `HealthComponentPrivate` among them.
+>
+> **The control is what makes this evidence rather than another story:** the *same v1.3 bytes* read
+> under the archived `24536482` usmap decode **all 35, coherently**. The pak is not corrupt; the
+> schema moved underneath it. (Caveat, stated: this is a CUE4Parse decode under the live usmap, not
+> an observed in-game crash. It is static evidence — strong, controlled, and still not the arbiter.)
+>
+> **Toothy is the standing rebuke to count-based triage.** Its property count does not move — 17
+> before, 17 after — and 8 of those 17 are values sitting under the wrong name. Export counts
+> (2026-07-10) and property counts alike are blind to this. Only a value-level decode against the
+> live schema sees it.
+>
+> Scope this patch: `BPC_IncomingDamageMod` dropped **nothing** (285 shapes in base, v1.3 and v1.4),
+> and the 4 Stalker AIDEFs are byte-identical to v1.3 — that class still has not drifted, so the
+> 2026-08-23 retraction below stands unchanged. The damage is confined to the 6 boss Blueprints.
+>
+> **And the lesson, inverted for once.** The three entries below are each a case of reasoning
+> standing in for evidence. This one is the measurement those entries kept wanting: the mechanism is
+> real, it did occur, it occurred *here* — and it occurred on a different class than the one it was
+> wrongly attributed to in 2026-08-05. Being right about a mechanism says nothing about where it
+> applies. Measure the class you are actually shipping, every build.
+
 > **Update 2026-08-23 (v1.3, built) — the 2026-08-05 diagnosis below is WITHDRAWN. It was wrong.**
 > The pak was finally rebuilt on a machine with the game (build `24536482`) and the claim was
 > measured instead of reasoned about. **All 4 Stalker AIDEFs build byte-for-byte identical to the

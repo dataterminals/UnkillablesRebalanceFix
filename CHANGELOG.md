@@ -2,6 +2,37 @@
 
 Plain-language changelog for the Nexus page. Newest first.
 
+## v1.4 — rebuilt for build 25071553 (2026-09-11)
+
+**If you use this mod, update it. Do not run v1.3 on build 25071553.**
+
+**What was wrong:** the 2026-09-10 patch changed the internal layout of the boss character
+class. The game stores these files as a bare list of values with no names attached, matched up
+by position — so when the layout moves, an older file is not rejected, it is **read wrong**.
+
+Measured against the live game, that is what happens to every one of v1.3's six boss files.
+Partway through, the values slide onto neighbouring settings — on Meatman, "far distance" comes
+back as 150 instead of 750, and the 750 lands on the close-range setting instead — and then the
+read desynchronises and **19 of its 35 settings are lost outright**, including which skeletal
+mesh, collision capsule, movement component and AI controller the boss uses. A boss missing
+those is the same shape of breakage as the v1.1 Meatman startup crash.
+
+The control that pins it on the game patch rather than on a bad pak: those same v1.3 files,
+read with the *previous* build's layout, decode perfectly — all 35 settings, all correct.
+
+**What changed:** every file is re-taken from build 25071553 and the rebalance re-applied on
+top. Verified against the live game: nothing dropped, every reference resolves. Nothing about
+the rebalance itself moved — boss HP, the Grabber/Stalker changes and the armour thresholds are
+exactly as before. The four Grabber/Stalker files are byte-for-byte identical to v1.3 (that
+class did not move in this patch), and the shared damage component lost nothing this time.
+
+**About the "crash when shooting the Grabber" report:** still open, still needs a crash log.
+The suspected cause was ruled out by measurement in v1.3 and nothing here changes that.
+
+**To update:** replace your `153_UnkillablesRebalance_P` files (`.pak`, `.ucas`, `.utoc`) with
+the new ones. As always after a game patch, do a clean reinstall of your mod loader (Signature
+Bypass + UE4SS) too — remove and re-add, don't just toggle.
+
 ## v1.3 — rebuilt for build 24536482 (2026-08-23)
 
 **If you use this mod, update it.** The previous release was built for game build `24501089`. The
