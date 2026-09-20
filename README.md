@@ -4,32 +4,43 @@ A compatibility repair of the community mod **Unkillables Rebalance** for
 *The Forever Winter* (Nexus mod [#68](https://www.nexusmods.com/theforeverwinter/mods/68)),
 so it works again on the current game build.
 
-> **Status:** **rebuilt & statically verified on build `25071553`** (2026-09-11) — awaiting the
-> in-game test. The mod ships for game **0.9.2.2**; root cause is cooked-asset version drift (same
-> failure class as `HeavyRifleRebalanceFix`). The rebuilt pak is in
+> **Status:** **v1.4 is built (2026-09-11), statically verified against the live build `25071553`
+> — re-measured 2026-09-20 — and cleared for release.** Nexus
+> [#124](https://www.nexusmods.com/theforeverwinter/mods/124) still serves **v1.3**, and v1.3
+> **crashes the game at load** on `0.9.5.x`. The rebuilt pak is in
 > [`dist/UnkillablesRebalanceFix/`](dist/UnkillablesRebalanceFix).
 >
-> **What this rebuild fixes — and this one is severe.** Build `25071553` (2026-09-10) **moved the AI
-> character class schema**. Because UE5 cooks properties unversioned — identified by index, not by
-> name — the v1.3 cook is not rejected on the new build, it is **mis-read**: on all 6 boss BPs the
-> CDO property stream slides onto neighbouring properties (`FarDistance` decodes 150 where base has
-> 750; the 750 lands on `CloseDistanceRadiusScalar`) and then desynchronises: **19 properties never
-> decode at all** — `RootComponent`, `Mesh`, `CapsuleComponent`, `CharacterMovement`,
-> `AIControllerClass`, `HealthComponentPrivate`, `Tags` among them — for a net 35 → 19 on MeatMan's
-> CDO. Same failure class as the v1.1 MeatMan startup crash. Toothy is the warning about count-based
-> gates: its property count is unchanged at 17, with 8 of the 17 sitting under the wrong name.
+> **The mechanism is confirmed in-game now, not only measured.** A player's crash report from
+> 2026-08-29 — which sat unread in a DM until 2026-09-20 — names the MeatMan class default object:
+> `ObjectSerializationError … Default__BP_AI_Euruska_MeatMan_C: Bad import index 1996488703/198`.
+> The package hash it prints is byte-reversed `d5ec4e4ddcb15175`, line 22 of
+> [`tools/expected_package_ids.txt`](tools/expected_package_ids.txt) — the exact package this mod
+> overrides. See [`docs/crash-2026-08-29-meatman.md`](docs/crash-2026-08-29-meatman.md).
 >
-> **This is the first direct measurement of the index-shift mechanism in this repo**, with a
-> control: the same v1.3 pak read under the archived `24536482` usmap decodes all 35 CDO properties
-> coherently, and under the live `25071553` usmap only 19. The `BPC_IncomingDamageMod` and the 4
-> Stalker AIDEFs did **not** move this patch. See [`WORKLOG.md`](WORKLOG.md) Session 7.
+> **What moved, and when.** The **August 2026 Update (`0.9.5.0`, 2026-08-28)** rebuilt the game's AI
+> subsystem and moved the AI character class schema. Because UE5 cooks properties unversioned —
+> identified by index, not by name — a pre-`0.9.5.0` cook is not rejected, it is **mis-read**: on all
+> 6 boss BPs the CDO property stream slides onto neighbouring properties (`FarDistance` decodes 150
+> where base has 750; the 750 lands on `CloseDistanceRadiusScalar`) and then desynchronises, with
+> **19 properties never decoding at all** — `RootComponent`, `Mesh`, `CapsuleComponent`,
+> `CharacterMovement`, `AIControllerClass`, `HealthComponentPrivate`, `Tags` among them — for a net
+> 35 → 19 on MeatMan's CDO. Every object reference in that lost set is an import-index read, which
+> is what the crash above trips over. Toothy is the warning about count-based gates: its property
+> count is unchanged at 17, with 8 of the 17 sitting under the wrong name.
+>
+> Session 7 measured this with a control — the same v1.3 pak read under the archived `24536482`
+> usmap decodes all 35 CDO properties coherently, and under the live `25071553` usmap only 19 —
+> which brackets the move to `24536482 → 25071553`; the crash dates it to the first patch in that
+> range. The `BPC_IncomingDamageMod` and the 4 Stalker AIDEFs did **not** move. See
+> [`WORKLOG.md`](WORKLOG.md) Sessions 7–8.
 >
 > **The 2026-08-05 Grabber-crash diagnosis remains withdrawn** (Session 6): rebuilding the 4
 > Stalker/Grabber DataAssets from current base produced **byte-identical** payloads to the frozen
 > 0.9.2.2 cook, so that class never drifted and cannot have been mis-decoding. They are byte-
-> identical again on `25071553`. The reported crash is still unexplained and needs a crash log. See
-> [`docs/diagnosis.md`](docs/diagnosis.md), [`docs/fix-notes.md`](docs/fix-notes.md) and
-> [`WORKLOG.md`](WORKLOG.md).
+> identical again on `25071553`. That report is a crash while *shooting* a Grabber; the one above is
+> a crash while the game *loads*, and explaining the second does not explain the first — it still
+> needs its own log. See [`docs/diagnosis.md`](docs/diagnosis.md),
+> [`docs/fix-notes.md`](docs/fix-notes.md) and [`WORKLOG.md`](WORKLOG.md).
 
 ## What the mod does
 

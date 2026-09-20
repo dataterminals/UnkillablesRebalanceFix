@@ -566,3 +566,97 @@ So v1.3's damage is confined to the 6 boss Blueprints — but there it is total,
 - [ ] Shoot a Grabber repeatedly (still an open report, still no established cause, still needs a
       crash log).
 - [ ] Publish v1.4 to Nexus #124 once the launch is green.
+
+---
+
+## 2026-09-20 — Session 8: the arbiter arrived on 08-29 and nobody read it (SylDesk)
+
+**Goal:** Fenix asked again for a Nexus update ("pls update, when u will have time"). Establish what
+#124 actually serves, whether the game moved since v1.4, and what is really blocking a release.
+
+### What Nexus #124 serves: v1.3, since 24 August
+
+18 endorsements, 368 unique DLs on the page; the v1.3 file itself shows **96 unique downloads**.
+So the published pak is the `24536482` cook — and it has been the published pak since the day after
+Session 6 built it.
+
+**Correction to the ops board:** `tfw-update-ops/state/audit-25071553-raw.md` records #124 as
+serving **v1.2** and v1.3 as "BUILT AND COMMITTED but NOT RELEASED". The page says otherwise. That
+audit derived release state from CHANGELOG prose because this repo's WORKLOG never ticks a box —
+Session 6's "Publish v1.3 to Nexus #124 once the launch is green" was done in reality and never
+recorded here. Same gap the audit itself names ("Sylvia should confirm what #124 actually serves").
+Worth a correction on the board; not made from here.
+
+### The crash report that was sitting in a DM
+
+Fenix sent a crash report and a `UE4SS.log` on **2026-08-29 01:54 EDT**. Sessions 6 and 7 both ran
+without it. Full analysis: [`docs/crash-2026-08-29-meatman.md`](docs/crash-2026-08-29-meatman.md).
+
+```
+ObjectSerializationError: .../BP_AI_Euruska_MeatMan (0x7551B1DC4D4EECD5) ...
+  .Default__BP_AI_Euruska_MeatMan_C: Bad import index 1996488703/198.
+```
+
+- `0x7551B1DC4D4EECD5` is `d5ec4e4ddcb15175` byte-reversed — **line 22 of
+  `tools/expected_package_ids.txt`**. The crashing package is precisely the one this mod overrides,
+  identified by our own binding table.
+- The failing object is the **CDO**, the same object Session 7 measured at 35 properties on base and
+  **19** on v1.3-read-live.
+- `1996488703` = `0x76FFFFFF`; on disk `FF FF FF 76`, against an import table of 198. Three `FF`
+  bytes plus one stray is what a null object reference read late looks like. And of the 19
+  properties Session 7 found never decoding, every object reference among them — `RootComponent`,
+  `Mesh`, `CapsuleComponent`, `CharacterMovement`, `AIControllerClass`, `HealthComponentPrivate` —
+  is an **import-index read**. The predicted mechanism and the observed crash are the same event.
+- His exe is 169,738,240 B against SylDesk's 169,740,288 B at `25071553`: he was on the `0.9.5.0` /
+  `0.9.5.1` build of 08-28, one day old. v1.3 was published 08-24, four days before it.
+
+**So Session 7's prediction — "if v1.3 is still installed anywhere, expect it to break first" — had
+already been confirmed 13 days before it was written.** The repo has spent three sessions asking for
+an in-game arbiter while one was unread in a DM. That is the process lesson of this session, and it
+is not a technical one.
+
+**Dating correction:** the boss-class move is a **`0.9.5.0` (2026-08-28)** event — the patch whose
+notes say the AI subsystem was rebuilt from the ground up — not "the 2026-09-10 patch". 09-10 is
+SylDesk's *download* date; `25071553` accumulates `0.9.5.0`→`0.9.5.3` and landed 09-03. Session 7's
+usmap control brackets the move to `24536482 → 25071553`; the crash narrows it to the first patch in
+that range. Player-facing text corrected accordingly.
+
+### The game has not moved since v1.4 was built
+
+- Steam `buildid` **and** `TargetBuildID` are both `25071553`; pak mtimes 2026-09-10 14:22.
+- `FWPakManifest.json` SHA256 `5362C74E3363F37C79D2A8FCE43137E44639E22B86E757A77DAD492DDB5FE47E`
+  — byte-equal to the ops repo's `post-25071553` baseline hash. This install *is* the captured build.
+- Steam news has nothing after `0.9.5.3` (09-02).
+- `dist/` pristine at HEAD.
+
+So v1.4 is still current, and no rebuild was needed. **`verify_build.sh` re-run today against
+`dist/`** rather than trusting the 09-11 green: 11 shipped packages, 16 dumps, 0 uncovered · 3165
+references, 0 dangling · 0 properties dropped. Identical to Session 7, taken fresh.
+
+### Recommendation: publish v1.4 now, verify in-game after
+
+The standing rule is "publish once the launch is green". It has now deferred two releases across
+four weeks, and this session measures what the deferral costs: the pak on the page crashes at load
+on `0.9.5.x`, ~96 people have downloaded it, and at least one of them has been crashing since 08-29.
+
+The asymmetry is no longer close. v1.4 is the live cook with only the rebalance scalars byte-patched
+in, statically verified today against the live build; the thing it replaces is confirmed broken
+in-game. Waiting protects nobody. Ship it, and demote the launch test to post-release verification —
+recorded here as a deliberate departure from the rule, not a lapse in it.
+
+### Player-facing text rewritten
+
+Both the CHANGELOG entry and `dist/readme.txt` were written as a v1.3→v1.4 note attributing the
+break to a 09-10 patch. Corrected to the real upgrade path and the real cause, and the crash symptom
+is now quoted so a player can recognise their own crash. Zip regenerated (readme stays CRLF).
+
+### Next
+
+- [ ] **Sylvia:** upload `dist/UnkillablesRebalanceFix.zip` to Nexus #124 as **v1.4**, changelog
+      entry from `CHANGELOG.md`. Reply to Fenix — his log is what dated the break.
+- [ ] In-game on `25071553`, now post-release: bosses spawn with model/collision/behaviour, are
+      staggerable and killable, `…\Saved\Crashes\` empty.
+- [ ] **Still open:** the Grabber *shooting* crash. This report is a load crash and does not touch
+      it; it still needs its own log.
+- [ ] Ops board: correct #124's released version (v1.3, not v1.2) and re-date the boss-class move
+      to `0.9.5.0`.
